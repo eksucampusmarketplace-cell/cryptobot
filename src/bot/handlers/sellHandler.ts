@@ -59,7 +59,13 @@ export async function handleCryptoSelection(ctx: Context, crypto: string): Promi
   if (!telegramId) return;
 
   const session = getSession(telegramId);
-  if (session.state !== SessionState.SELECTING_CRYPTO) return;
+  if (session.state !== SessionState.SELECTING_CRYPTO) {
+    await ctx.reply(
+      '⚠️ Your session has expired. Please start a new transaction.\n\nUse /sell to try again.',
+      getMainKeyboard()
+    );
+    return;
+  }
 
   updateSessionData(telegramId, { crypto });
   setSession(telegramId, { state: SessionState.SELECTING_NETWORK });
@@ -93,12 +99,30 @@ export async function handleNetworkSelection(ctx: Context, network: string): Pro
   if (!telegramId) return;
 
   const session = getSession(telegramId);
-  if (session.state !== SessionState.SELECTING_NETWORK) return;
+  
+  // Check if user is in the correct state
+  if (session.state !== SessionState.SELECTING_NETWORK) {
+    await ctx.reply(
+      '⚠️ Your session has expired. Please start a new transaction.\n\nUse /sell to try again.',
+      getMainKeyboard()
+    );
+    return;
+  }
+  
+  // Validate that crypto was selected
+  const crypto = session.data.crypto as string;
+  if (!crypto) {
+    logger.warn(`Session missing crypto data for user ${telegramId}`);
+    await ctx.reply(
+      '⚠️ Session error: cryptocurrency not selected. Please start over.\n\nUse /sell to try again.',
+      getMainKeyboard()
+    );
+    clearSession(telegramId);
+    return;
+  }
 
   updateSessionData(telegramId, { network });
   setSession(telegramId, { state: SessionState.ENTERING_AMOUNT });
-
-  const crypto = session.data.crypto as string;
   
   // Get crypto info from NOWPayments or fallback
   let minAmount = 0.01;
@@ -142,7 +166,26 @@ export async function handleAmountEntry(ctx: Context): Promise<void> {
   if (!telegramId) return;
 
   const session = getSession(telegramId);
-  if (session.state !== SessionState.ENTERING_AMOUNT) return;
+  if (session.state !== SessionState.ENTERING_AMOUNT) {
+    await ctx.reply(
+      '⚠️ Your session has expired. Please start a new transaction.\n\nUse /sell to try again.',
+      getMainKeyboard()
+    );
+    return;
+  }
+
+  // Validate required session data
+  const crypto = session.data.crypto as string;
+  const network = session.data.network as string;
+  if (!crypto || !network) {
+    logger.warn(`Session missing data for user ${telegramId}: crypto=${crypto}, network=${network}`);
+    await ctx.reply(
+      '⚠️ Session error. Please start over.\n\nUse /sell to try again.',
+      getMainKeyboard()
+    );
+    clearSession(telegramId);
+    return;
+  }
 
   const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
   const amount = parseFloat(text);
@@ -151,8 +194,6 @@ export async function handleAmountEntry(ctx: Context): Promise<void> {
     await ctx.reply('⚠️ Please enter a valid amount:');
     return;
   }
-
-  const crypto = session.data.crypto as string;
   
   // Get min amount from NOWPayments or fallback
   let minAmount = 0.01;
@@ -220,7 +261,13 @@ export async function handleConfirmSale(ctx: Context): Promise<void> {
   if (!telegramId) return;
 
   const session = getSession(telegramId);
-  if (session.state !== SessionState.CONFIRMING_SALE) return;
+  if (session.state !== SessionState.CONFIRMING_SALE) {
+    await ctx.reply(
+      '⚠️ Your session has expired. Please start a new transaction.\n\nUse /sell to try again.',
+      getMainKeyboard()
+    );
+    return;
+  }
 
   const user = await userService.findByTelegramId(telegramId);
   if (!user) return;
@@ -230,6 +277,17 @@ export async function handleConfirmSale(ctx: Context): Promise<void> {
     network: string;
     amount: number;
   };
+  
+  // Validate required data
+  if (!crypto || !network || !amount) {
+    logger.warn(`Session missing data for confirm sale: user ${telegramId}`);
+    await ctx.reply(
+      '⚠️ Session error. Please start over.\n\nUse /sell to try again.',
+      getMainKeyboard()
+    );
+    clearSession(telegramId);
+    return;
+  }
 
   try {
     // Get required confirmations from NOWPayments or fallback
