@@ -273,9 +273,12 @@ class CryptoBot {
       // Connect to database in the background (don't block server startup)
       this.connectDatabaseAsync();
 
-      // Launch bot
-      await this.bot.launch();
-      logger.info('Bot started successfully');
+      // Enable graceful stop before launching
+      process.once('SIGINT', () => this.stop('SIGINT'));
+      process.once('SIGTERM', () => this.stop('SIGTERM'));
+
+      // Launch bot with retry logic to handle 409 conflicts on restart
+      await this.launchWithRetry();
 
       // Log IPN status
       if (config.ipn.enabled && config.ipn.secret) {
@@ -285,13 +288,33 @@ class CryptoBot {
       } else {
         logger.info('IPN disabled - using polling only for deposit detection');
       }
-
-      // Enable graceful stop
-      process.once('SIGINT', () => this.stop('SIGINT'));
-      process.once('SIGTERM', () => this.stop('SIGTERM'));
     } catch (error) {
       logger.error('Failed to start bot:', error);
       process.exit(1);
+    }
+  }
+
+  private async launchWithRetry(maxAttempts = 5): Promise<void> {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        await this.bot.launch({ dropPendingUpdates: true });
+        logger.info('Bot started successfully');
+        return;
+      } catch (error: any) {
+        const is409 = error?.response?.error_code === 409 ||
+          (error instanceof Error && error.message.includes('409'));
+
+        if (is409 && attempt < maxAttempts) {
+          const waitMs = attempt * 5000;
+          logger.warn(
+            `Bot launch conflict (409) - another instance may still be stopping. ` +
+            `Retrying in ${waitMs / 1000}s (attempt ${attempt}/${maxAttempts})...`
+          );
+          await new Promise((resolve) => setTimeout(resolve, waitMs));
+        } else {
+          throw error;
+        }
+      }
     }
   }
 
@@ -548,12 +571,18 @@ class CryptoBot {
 
     // Listen on all interfaces (0.0.0.0) for Render compatibility
     this.webhookServer.listen(port, '0.0.0.0', () => {
+      const publicBase =
+        process.env.RENDER_EXTERNAL_URL ||
+        process.env.SELF_URL ||
+        `http://localhost:${port}`;
+      const base = publicBase.replace(/\/$/, '');
+
       logger.info(`✅ Webhook server listening on 0.0.0.0:${port}`);
-      logger.info(`IPN endpoint: http://localhost:${port}${webhookService.getWebhookPath()}`);
-      logger.info(`Health check: http://localhost:${port}/health`);
-      logger.info(`WebApp registration: http://localhost:${port}/register`);
-      logger.info(`API banks: http://localhost:${port}/api/banks`);
-      logger.info(`API resolve-account: http://localhost:${port}/api/resolve-account`);
+      logger.info(`IPN endpoint: ${base}${webhookService.getWebhookPath()}`);
+      logger.info(`Health check: ${base}/health`);
+      logger.info(`WebApp registration: ${base}/register`);
+      logger.info(`API banks: ${base}/api/banks`);
+      logger.info(`API resolve-account: ${base}/api/resolve-account`);
     });
 
     this.webhookServer.on('error', (error: NodeJS.ErrnoException) => {
