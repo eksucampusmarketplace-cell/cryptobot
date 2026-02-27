@@ -20,6 +20,7 @@ const normalizeDatabaseUrl = (input?: string): string | undefined => {
     const isSupabasePooler = url.hostname.includes('pooler.supabase.com');
 
     if (isSupabase && !isSupabasePooler) {
+      // Direct Supabase connection (port 5432)
       if (!url.searchParams.has('sslmode')) {
         url.searchParams.set('sslmode', 'require');
       }
@@ -29,8 +30,17 @@ const normalizeDatabaseUrl = (input?: string): string | undefined => {
       url.searchParams.set('connect_timeout', '60');
     }
 
-    if (isSupabasePooler && !url.searchParams.has('sslmode')) {
-      url.searchParams.set('sslmode', 'require');
+    if (isSupabasePooler) {
+      // Supabase Pooler connection (port 6543) - uses transaction mode
+      // Transaction pooler requires specific settings
+      if (!url.searchParams.has('sslmode')) {
+        url.searchParams.set('sslmode', 'require');
+      }
+      // For transaction pooler, we need to ensure proper connection handling
+      url.searchParams.set('connect_timeout', '60');
+      url.searchParams.set('pool_timeout', '60');
+      // Disable prepared statements for transaction pooler compatibility
+      url.searchParams.set('pgbouncer', 'true');
     }
 
     return url.toString();
@@ -45,7 +55,11 @@ if (normalizedDatabaseUrl) {
   process.env.DATABASE_URL = normalizedDatabaseUrl;
 }
 
-const prismaOptions: any = {};
+const prismaOptions: any = {
+  log: process.env.NODE_ENV === 'production'
+    ? ['error', 'warn']
+    : ['query', 'error', 'warn'],
+};
 
 if (normalizedDatabaseUrl) {
   prismaOptions.datasources = {
