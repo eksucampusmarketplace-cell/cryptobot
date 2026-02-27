@@ -531,12 +531,12 @@ class CryptoBot {
               ['❓ Help'],
             ]).resize().oneTime();
 
-            await this.bot.telegram.sendMessage(user.id, welcomeMessage, { 
+            await this.bot.telegram.sendMessage(user.id, welcomeMessage, {
               parse_mode: 'HTML',
               reply_markup: mainKeyboard.reply_markup as any
             });
           } catch (botError) {
-            logger.warn(`Could not send welcome message to user ${user.id}:`, botError);
+            logger.warn(`Could not send welcome message to user ${user.id}: ${botError instanceof Error ? botError.message : String(botError)}`);
           }
 
           // Notify admin of new registration via WebApp
@@ -546,13 +546,13 @@ class CryptoBot {
             bankName: data.bank_name,
             accountNumber: data.account_number,
             accountName: data.account_name,
-          }).catch((err) => logger.warn('Failed to send new-user admin notification:', err));
+          }).catch((err) => logger.warn(`Failed to send new-user admin notification: ${err instanceof Error ? err.message : String(err)}`));
 
           res.statusCode = 200;
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ success: true }));
         } catch (error) {
-          logger.error('Failed to save bank details:', error);
+          logError('Failed to save bank details', error);
           const message = error instanceof Error ? error.message : 'Failed to save bank details';
           res.statusCode = 500;
           res.setHeader('Content-Type', 'application/json');
@@ -761,7 +761,7 @@ class CryptoBot {
 
           jsonErr(404, 'Admin API endpoint not found');
         } catch (error) {
-          logger.error('Admin API error:', error);
+          logError('Admin API error', error);
           const msg = error instanceof Error ? error.message : 'Internal server error';
           jsonErr(500, msg);
         }
@@ -815,7 +815,7 @@ class CryptoBot {
       if (error.code === 'EADDRINUSE') {
         logger.error(`Port ${port} is already in use`);
       } else {
-        logger.error('Webhook server error:', error);
+        logError('Webhook server error', error);
       }
     });
   }

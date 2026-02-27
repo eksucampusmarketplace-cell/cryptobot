@@ -121,12 +121,12 @@ export function logError(context: string, error: unknown): void {
       name: error.name,
       message: error.message,
     };
-    
+
     // Include stack trace for non-production environments
     if (process.env.NODE_ENV !== 'production') {
       errorInfo.stack = error.stack;
     }
-    
+
     // Handle Axios-style errors
     const axiosError = error as any;
     if (axiosError.response) {
@@ -141,10 +141,11 @@ export function logError(context: string, error: unknown): void {
         method: axiosError.config.method,
       };
     }
-    
+
     logger.error(`${context}:`, errorInfo);
   } else {
-    logger.error(`${context}:`, error);
+    // For non-Error objects, use safeStringify to avoid circular reference errors
+    logger.error(`${context}: ${safeStringify(error)}`);
   }
 }
 

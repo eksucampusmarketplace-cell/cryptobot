@@ -134,7 +134,7 @@ export async function handleAccountName(ctx: BotContext): Promise<void> {
     bankName: session.data.bankName as string,
     accountNumber: session.data.accountNumber as string,
     accountName,
-  }).catch((err) => logger.warn('Failed to notify admin of new user:', err));
+  }).catch((err) => logger.warn(`Failed to notify admin of new user: ${err instanceof Error ? err.message : String(err)}`));
 }
 
 export async function handleSettings(ctx: BotContext): Promise<void> {
