@@ -454,6 +454,68 @@
 
     /* ── Scrollable content ─────────────── */
     .scroll-hint { font-size: 11px; color: var(--text-dim); text-align: center; padding: 8px; }
+
+    /* ── Ticket Cards ────────────────────── */
+    .ticket-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .ticket-card:hover { border-color: var(--primary); }
+    .ticket-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .ticket-subject { font-size: 14px; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ticket-status-row { display: flex; align-items: center; gap: 8px; }
+    .status-OPEN { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+    .status-IN_PROGRESS { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+    .status-WAITING_USER { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+    .status-RESOLVED { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+    .status-CLOSED { background: rgba(100, 116, 139, 0.15); color: var(--text-muted); }
+    .ticket-user { font-size: 12px; color: var(--text-muted); }
+    .ticket-user span { color: var(--text); font-weight: 600; }
+    .ticket-time { font-size: 11px; color: var(--text-dim); }
+
+    /* ── Ticket Detail ───────────────────── */
+    .ticket-detail-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .ticket-detail-subject { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .ticket-detail-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
+    .ticket-detail-meta span { color: var(--text); }
+
+    /* ── Ticket Messages ─────────────────── */
+    .ticket-messages { display: flex; flex-direction: column; gap: 10px; }
+    .msg-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+    }
+    .msg-card.admin { border-left: 3px solid var(--primary); }
+    .msg-card.user { border-left: 3px solid var(--success); }
+    .msg-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+    .msg-sender { font-size: 12px; font-weight: 700; }
+    .msg-sender.admin { color: var(--primary-light); }
+    .msg-sender.user { color: var(--success); }
+    .msg-time { font-size: 11px; color: var(--text-dim); }
+    .msg-text { font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+
+    /* ── Broadcast Result ────────────────── */
+    .broadcast-result {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+    }
+    .broadcast-result.success { border-left: 3px solid var(--success); }
+    .broadcast-result.error { border-left: 3px solid var(--danger); }
   </style>
 </head>
 <body>
@@ -500,11 +562,15 @@
     💳 Transactions
     <span class="nav-badge" id="txNavBadge" style="display:none">0</span>
   </button>
+  <button class="nav-btn" onclick="showPage('tickets')" id="nav-tickets">
+    🎫 Tickets
+    <span class="nav-badge" id="ticketNavBadge" style="display:none">0</span>
+  </button>
   <button class="nav-btn" onclick="showPage('users')" id="nav-users">
     👥 Users
   </button>
-  <button class="nav-btn" onclick="showPage('activity')" id="nav-activity">
-    🔔 Activity
+  <button class="nav-btn" onclick="showPage('broadcast')" id="nav-broadcast">
+    📢 Broadcast
   </button>
   <button class="nav-btn" onclick="showPage('audit')" id="nav-audit">
     📋 Audit Log
@@ -628,15 +694,83 @@
   </div>
 </div>
 
-<!-- ── Activity Page ──────────────────────────────────────────── -->
-<div class="page" id="page-activity">
+<!-- ── Tickets Page ─────────────────────────────────────────────── -->
+<div class="page" id="page-tickets">
   <div style="height:16px"></div>
-  <div class="section-header">
-    <div class="section-title">🔔 All Activity</div>
-    <button class="section-action" onclick="loadActivity()">🔄 Refresh</button>
+
+  <div class="filter-row" id="ticketFilters">
+    <button class="filter-btn active" onclick="filterTickets('ALL')">All</button>
+    <button class="filter-btn" onclick="filterTickets('OPEN')">🟢 Open</button>
+    <button class="filter-btn" onclick="filterTickets('IN_PROGRESS')">🟡 In Progress</button>
+    <button class="filter-btn" onclick="filterTickets('WAITING_USER')">🔴 Waiting</button>
+    <button class="filter-btn" onclick="filterTickets('RESOLVED')">✅ Resolved</button>
+    <button class="filter-btn" onclick="filterTickets('CLOSED')">🔒 Closed</button>
   </div>
-  <div class="activity-list" id="fullActivity">
+
+  <div class="ticket-list" id="ticketList">
     <div class="empty-state"><div class="icon">⏳</div><p>Loading...</p></div>
+  </div>
+
+  <div class="pagination" id="ticketPagination" style="display:none">
+    <button class="page-btn" id="ticketPrevBtn" onclick="changeTicketPage(-1)">← Prev</button>
+    <span class="page-info" id="ticketPageInfo">1 / 1</span>
+    <button class="page-btn" id="ticketNextBtn" onclick="changeTicketPage(1)">Next →</button>
+  </div>
+</div>
+
+<!-- ── Ticket Detail Page ───────────────────────────────────────── -->
+<div class="page" id="page-ticket-detail">
+  <div style="height:16px"></div>
+  <button class="section-action" onclick="showPage('tickets')" style="margin-bottom:12px">← Back to Tickets</button>
+
+  <div class="ticket-detail-card" id="ticketDetailCard">
+    <div class="empty-state"><div class="icon">⏳</div><p>Loading...</p></div>
+  </div>
+
+  <div class="ticket-messages" id="ticketMessages">
+    <!-- Messages will be rendered here -->
+  </div>
+
+  <div class="reply-box" id="replyBox" style="margin-top:16px">
+    <textarea id="replyText" placeholder="Type your reply..." rows="3" style="width:100%;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;resize:vertical"></textarea>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn-sm btn-success" style="flex:1;padding:12px" onclick="sendTicketReply()">📤 Send Reply</button>
+      <button class="btn-sm btn-info" style="padding:12px" onclick="resolveTicket()">✅ Resolve</button>
+      <button class="btn-sm btn-danger" style="padding:12px" onclick="closeTicket()">🔒 Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Broadcast Page ───────────────────────────────────────────── -->
+<div class="page" id="page-broadcast">
+  <div style="height:16px"></div>
+
+  <div class="chart-card">
+    <div class="chart-title">📢 Send Broadcast Message</div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+      Send a message to all non-banned users. Use HTML formatting if needed.
+    </p>
+
+    <textarea id="broadcastText" placeholder="Enter your broadcast message here...&#10;&#10;You can use HTML tags like &lt;b&gt;, &lt;i&gt;, &lt;a href='...'&gt;, etc." rows="6" style="width:100%;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;resize:vertical;font-family:inherit"></textarea>
+
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn-sm btn-success" style="flex:1;padding:14px;font-size:15px" onclick="sendBroadcast()">📤 Send Broadcast</button>
+    </div>
+
+    <div id="broadcastResult" style="margin-top:16px;display:none">
+      <!-- Result will be shown here -->
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">ℹ️ Broadcast Guidelines</div>
+    <ul style="font-size:13px;color:var(--text-muted);line-height:1.8;padding-left:20px">
+      <li>Messages are sent to all non-banned users</li>
+      <li>Use HTML for formatting: &lt;b&gt;bold&lt;/b&gt;, &lt;i&gt;italic&lt;/i&gt;</li>
+      <li>Links: &lt;a href='url'&gt;text&lt;/a&gt;</li>
+      <li>All broadcasts are logged in the audit trail</li>
+      <li>Rate limits may apply for large user bases</li>
+    </ul>
   </div>
 </div>
 
@@ -664,6 +798,10 @@
   let currentUserSearch = '';
   let userSearchTimer = null;
   let pendingModal = null;
+  let currentTicketPage = 1;
+  let totalTicketPages = 1;
+  let currentTicketFilter = 'ALL';
+  let currentTicketId = null;
 
   // ── Bootstrap ─────────────────────────────────────────────────
   async function init() {
@@ -682,13 +820,14 @@
       showToast('⚠️ Open from Telegram bot', 'error');
     }
 
-    await Promise.all([loadStats(), loadActivity(), loadTransactions(), loadUsers()]);
+    await Promise.all([loadStats(), loadActivity(), loadTransactions(), loadUsers(), loadTickets(), loadTicketCounts()]);
     loadAuditLog();
 
     // Auto-refresh every 60s
     setInterval(() => {
       loadStats();
       loadActivity();
+      loadTicketCounts();
       if (document.getElementById('page-transactions').classList.contains('active')) loadTransactions();
     }, 60000);
   }
@@ -1112,6 +1251,227 @@
       document.getElementById('auditList').innerHTML =
         '<div class="empty-state"><div class="icon">❌</div><p>' + escHtml(e.message) + '</p></div>';
     }
+  }
+
+  // ── Tickets ──────────────────────────────────────────────────────
+  async function loadTicketCounts() {
+    try {
+      const counts = await apiCall('/api/admin/ticket-counts');
+      const openCount = counts.open + counts.inProgress;
+      const badge = document.getElementById('ticketNavBadge');
+      if (openCount > 0) {
+        badge.textContent = openCount;
+        badge.style.display = 'inline-block';
+      } else {
+        badge.style.display = 'none';
+      }
+    } catch (e) {
+      console.error('Failed to load ticket counts:', e);
+    }
+  }
+
+  async function loadTickets() {
+    try {
+      const params = new URLSearchParams({ page: currentTicketPage, limit: 10 });
+      if (currentTicketFilter !== 'ALL') params.set('status', currentTicketFilter);
+      const data = await apiCall('/api/admin/tickets?' + params);
+      totalTicketPages = data.pages || 1;
+      renderTickets(data.tickets || []);
+      updateTicketPagination();
+    } catch (e) {
+      document.getElementById('ticketList').innerHTML =
+        '<div class="empty-state"><div class="icon">❌</div><p>' + escHtml(e.message) + '</p></div>';
+    }
+  }
+
+  function filterTickets(status) {
+    currentTicketFilter = status;
+    currentTicketPage = 1;
+    document.querySelectorAll('#ticketFilters .filter-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    loadTickets();
+  }
+
+  function renderTickets(tickets) {
+    const el = document.getElementById('ticketList');
+    if (!tickets.length) {
+      el.innerHTML = '<div class="empty-state"><div class="icon">🎫</div><p>No tickets found</p></div>';
+      return;
+    }
+    el.innerHTML = tickets.map(t => {
+      const statusClass = t.status;
+      const statusLabel = t.status.replace(/_/g, ' ');
+      return `<div class="ticket-card" onclick="viewTicket('${t.id}')">
+        <div class="ticket-top">
+          <div class="ticket-subject">${escHtml(t.subject)}</div>
+          <span class="status-badge status-${statusClass}">${statusLabel}</span>
+        </div>
+        <div class="ticket-user">👤 <span>${escHtml(t.user?.firstName || 'Unknown')}</span> · @${escHtml(t.user?.username || 'N/A')} · ${escHtml(t.user?.telegramId || '')}</div>
+        <div class="ticket-time">${fmtDate(t.createdAt)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function updateTicketPagination() {
+    const el = document.getElementById('ticketPagination');
+    el.style.display = totalTicketPages > 1 ? 'flex' : 'none';
+    document.getElementById('ticketPageInfo').textContent = currentTicketPage + ' / ' + totalTicketPages;
+    document.getElementById('ticketPrevBtn').disabled = currentTicketPage <= 1;
+    document.getElementById('ticketNextBtn').disabled = currentTicketPage >= totalTicketPages;
+  }
+
+  function changeTicketPage(dir) {
+    currentTicketPage = Math.max(1, Math.min(totalTicketPages, currentTicketPage + dir));
+    loadTickets();
+  }
+
+  async function viewTicket(ticketId) {
+    currentTicketId = ticketId;
+    showLoading('Loading ticket...');
+    try {
+      const data = await apiCall('/api/admin/tickets/' + ticketId);
+      const t = data.ticket;
+      const messages = data.messages || [];
+
+      // Render ticket details
+      const statusClass = t.status;
+      const statusLabel = t.status.replace(/_/g, ' ');
+      document.getElementById('ticketDetailCard').innerHTML = `
+        <div class="ticket-detail-subject">${escHtml(t.subject)}</div>
+        <div class="ticket-detail-meta">
+          👤 <span>${escHtml(t.user?.firstName || 'Unknown')}</span> · @${escHtml(t.user?.username || 'N/A')} · ${escHtml(t.user?.telegramId || '')}<br>
+          📅 Created: ${fmtDate(t.createdAt)}<br>
+          🔄 Status: <span class="status-badge status-${statusClass}" style="display:inline-block;padding:2px 8px">${statusLabel}</span>
+        </div>
+      `;
+
+      // Render messages
+      const msgEl = document.getElementById('ticketMessages');
+      if (!messages.length) {
+        msgEl.innerHTML = '<div class="empty-state"><div class="icon">💬</div><p>No messages yet</p></div>';
+      } else {
+        msgEl.innerHTML = messages.map(m => `
+          <div class="msg-card ${m.isFromAdmin ? 'admin' : 'user'}">
+            <div class="msg-header">
+              <span class="msg-sender ${m.isFromAdmin ? 'admin' : 'user'}">${m.isFromAdmin ? '🛡️ Admin' : '👤 User'}</span>
+              <span class="msg-time">${fmtDate(m.createdAt)}</span>
+            </div>
+            <div class="msg-text">${escHtml(m.message)}</div>
+          </div>
+        `).join('');
+      }
+
+      // Show/hide reply box based on status
+      const replyBox = document.getElementById('replyBox');
+      if (t.status === 'CLOSED' || t.status === 'RESOLVED') {
+        replyBox.style.display = 'none';
+      } else {
+        replyBox.style.display = 'block';
+      }
+
+      document.getElementById('replyText').value = '';
+      showPage('ticket-detail');
+    } catch (e) {
+      showToast('❌ ' + e.message, 'error');
+    } finally {
+      hideLoading();
+    }
+  }
+
+  async function sendTicketReply() {
+    if (!currentTicketId) return;
+    const message = document.getElementById('replyText').value.trim();
+    if (!message) {
+      showToast('Please enter a message', 'error');
+      return;
+    }
+
+    showLoading('Sending reply...');
+    try {
+      await apiCall('/api/admin/tickets/' + currentTicketId + '/reply', 'POST', { message });
+      showToast('✅ Reply sent!', 'success');
+      await viewTicket(currentTicketId);
+      await loadTicketCounts();
+    } catch (e) {
+      showToast('❌ ' + e.message, 'error');
+    } finally {
+      hideLoading();
+    }
+  }
+
+  async function resolveTicket() {
+    if (!currentTicketId) return;
+    openModal('✅ Resolve Ticket', 'Mark this ticket as resolved? The user will be notified.', 'confirm-approve', 'Resolve', async () => {
+      showLoading('Resolving...');
+      try {
+        await apiCall('/api/admin/tickets/' + currentTicketId + '/resolve', 'POST');
+        showToast('✅ Ticket resolved!', 'success');
+        await viewTicket(currentTicketId);
+        await loadTicketCounts();
+      } catch (e) {
+        showToast('❌ ' + e.message, 'error');
+      } finally {
+        hideLoading();
+      }
+    });
+  }
+
+  async function closeTicket() {
+    if (!currentTicketId) return;
+    openModal('🔒 Close Ticket', 'Close this ticket? The user will be notified and cannot reply further.', 'confirm-cancel-tx', 'Close Ticket', async () => {
+      showLoading('Closing...');
+      try {
+        await apiCall('/api/admin/tickets/' + currentTicketId + '/close', 'POST');
+        showToast('Ticket closed', 'success');
+        await viewTicket(currentTicketId);
+        await loadTicketCounts();
+      } catch (e) {
+        showToast('❌ ' + e.message, 'error');
+      } finally {
+        hideLoading();
+      }
+    });
+  }
+
+  // ── Broadcast ────────────────────────────────────────────────────
+  async function sendBroadcast() {
+    const message = document.getElementById('broadcastText').value.trim();
+    if (!message) {
+      showToast('Please enter a message', 'error');
+      return;
+    }
+
+    openModal('📢 Confirm Broadcast', 'Send this message to all non-banned users?', 'confirm-approve', 'Send Broadcast', async () => {
+      showLoading('Sending broadcast...');
+      try {
+        const result = await apiCall('/api/admin/broadcast', 'POST', { message });
+        const resultEl = document.getElementById('broadcastResult');
+        resultEl.style.display = 'block';
+        resultEl.innerHTML = `
+          <div class="broadcast-result success">
+            <div style="font-size:14px;font-weight:700;margin-bottom:8px">✅ Broadcast Complete</div>
+            <div style="font-size:13px;color:var(--text-muted)">
+              Successfully sent: <strong>${result.sent}</strong> users<br>
+              Failed: <strong>${result.failed}</strong> users
+            </div>
+          </div>
+        `;
+        showToast('✅ Broadcast sent!', 'success');
+        document.getElementById('broadcastText').value = '';
+      } catch (e) {
+        const resultEl = document.getElementById('broadcastResult');
+        resultEl.style.display = 'block';
+        resultEl.innerHTML = `
+          <div class="broadcast-result error">
+            <div style="font-size:14px;font-weight:700;margin-bottom:8px">❌ Broadcast Failed</div>
+            <div style="font-size:13px;color:var(--text-muted)">${escHtml(e.message)}</div>
+          </div>
+        `;
+        showToast('❌ ' + e.message, 'error');
+      } finally {
+        hideLoading();
+      }
+    });
   }
 
   // ── Helpers ────────────────────────────────────────────────────
