@@ -102,6 +102,7 @@ class CryptoBot {
     this.bot.command('history', sellHandler.handleHistory);
     this.bot.command('settings', userHandler.handleSettings);
     this.bot.command('help', userHandler.handleHelp);
+    this.bot.command('myid', userHandler.handleMyId);
     this.bot.command('referral', referralHandler.handleReferral);
     this.bot.command('support', supportHandler.handleSupportStart);
 
