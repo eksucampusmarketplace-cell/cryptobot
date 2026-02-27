@@ -1,6 +1,23 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 
+// Validate required environment variables
+const requiredEnvVars = ['DATABASE_URL'] as const;
+const missingEnvVars: string[] = [];
+
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    missingEnvVars.push(envVar);
+  }
+}
+
+if (missingEnvVars.length > 0) {
+  console.error(`\n❌ Missing required environment variable(s): ${missingEnvVars.join(', ')}`);
+  console.error('   Please set these in your Render dashboard or .env file');
+  console.error('   Example DATABASE_URL: postgresql://user:password@host:5432/database\n');
+  process.exit(1);
+}
+
 export const config = {
   telegram: {
     botToken: process.env.TELEGRAM_BOT_TOKEN || '',
