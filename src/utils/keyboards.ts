@@ -15,8 +15,8 @@ export function getMainKeyboard() {
 export function getAdminKeyboard() {
   return Markup.keyboard([
     ['📋 Pending Transactions', '👥 Users'],
-    ['📊 Statistics', '📢 Broadcast'],
-    ['🛡️ Admin Dashboard', '🔙 Back to User Mode'],
+    ['📊 Statistics', '🛡️ Admin Dashboard'],
+    ['🔙 Back to User Mode'],
   ]).resize().oneTime();
 }
 

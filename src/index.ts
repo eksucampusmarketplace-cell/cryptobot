@@ -112,7 +112,6 @@ class CryptoBot {
     this.bot.command('pending', adminHandler.handlePendingTransactions);
     this.bot.command('users', (ctx) => adminHandler.handleUsers(ctx));
     this.bot.command('stats', adminHandler.handleStats);
-    this.bot.command('broadcast', adminHandler.handleBroadcastStart);
 
     // Handle text messages based on session state
     this.bot.on('text', async (ctx) => {
@@ -158,10 +157,6 @@ class CryptoBot {
         case SessionState.UPDATING_ACCOUNT_NUMBER:
         case SessionState.UPDATING_ACCOUNT_NAME:
           await userHandler.handleSettingsUpdate(ctx);
-          break;
-
-        case SessionState.ADMIN_BROADCAST:
-          await adminHandler.handleBroadcastSend(ctx);
           break;
 
         default:
@@ -227,12 +222,6 @@ class CryptoBot {
       case '📊 Statistics':
         if (telegramId && adminHandler.isAdmin(telegramId)) {
           await adminHandler.handleStats(ctx);
-        }
-        return true;
-
-      case '📢 Broadcast':
-        if (telegramId && adminHandler.isAdmin(telegramId)) {
-          await adminHandler.handleBroadcastStart(ctx);
         }
         return true;
 
@@ -757,6 +746,129 @@ class CryptoBot {
           if (pathname === '/api/admin/audit-logs' && req.method === 'GET') {
             const logs = await adminApiService.getAuditLogs(100);
             jsonOk({ logs });
+            return;
+          }
+
+          // GET /api/admin/tickets
+          if (pathname === '/api/admin/tickets' && req.method === 'GET') {
+            const page = parseInt(query.page as string) || 1;
+            const limit = Math.min(parseInt(query.limit as string) || 10, 50);
+            const status = query.status as string | undefined;
+            const data = await adminApiService.getTickets(page, limit, status);
+            jsonOk(data);
+            return;
+          }
+
+          // GET /api/admin/tickets/:id
+          const ticketDetailMatch = pathname.match(/^\/api\/admin\/tickets\/([^/]+)$/);
+          if (ticketDetailMatch && req.method === 'GET') {
+            const ticketId = ticketDetailMatch[1];
+            const data = await adminApiService.getTicket(ticketId);
+            if (!data) { jsonErr(404, 'Ticket not found'); return; }
+            jsonOk(data);
+            return;
+          }
+
+          // POST /api/admin/tickets/:id/reply
+          const ticketReplyMatch = pathname.match(/^\/api\/admin\/tickets\/([^/]+)\/reply$/);
+          if (ticketReplyMatch && req.method === 'POST') {
+            const ticketId = ticketReplyMatch[1];
+            let body = '';
+            for await (const chunk of req) body += chunk;
+            let data: { message: string };
+            try { data = JSON.parse(body); } catch { jsonErr(400, 'Invalid JSON'); return; }
+            if (!data.message) { jsonErr(400, 'Message required'); return; }
+
+            const result = await adminApiService.replyToTicket(ticketId, adminTelegramId, data.message);
+            if (!result.success) { jsonErr(400, result.error || 'Failed to reply'); return; }
+
+            // Notify user of reply
+            const ticket = await adminApiService.getTicket(ticketId);
+            if (ticket) {
+              await notificationService.sendToUser(
+                (ticket.ticket as any).user.telegramId,
+                `🎫 <b>Support Ticket Reply</b>\n\n` +
+                `📋 Subject: ${(ticket.ticket as any).subject}\n\n` +
+                `💬 ${data.message}\n\n` +
+                `Reply using /support`,
+                'HTML'
+              );
+            }
+
+            jsonOk({ success: true });
+            return;
+          }
+
+          // POST /api/admin/tickets/:id/resolve
+          const ticketResolveMatch = pathname.match(/^\/api\/admin\/tickets\/([^/]+)\/resolve$/);
+          if (ticketResolveMatch && req.method === 'POST') {
+            const ticketId = ticketResolveMatch[1];
+            const result = await adminApiService.resolveTicket(ticketId, adminTelegramId);
+            if (!result.success) { jsonErr(400, result.error || 'Failed to resolve'); return; }
+
+            // Notify user
+            const ticket = await adminApiService.getTicket(ticketId);
+            if (ticket) {
+              await notificationService.sendToUser(
+                (ticket.ticket as any).user.telegramId,
+                `✅ <b>Support Ticket Resolved</b>\n\n` +
+                `📋 Subject: ${(ticket.ticket as any).subject}\n\n` +
+                `Your ticket has been marked as resolved. Thank you for contacting support!`,
+                'HTML'
+              );
+            }
+
+            jsonOk({ success: true });
+            return;
+          }
+
+          // POST /api/admin/tickets/:id/close
+          const ticketCloseMatch = pathname.match(/^\/api\/admin\/tickets\/([^/]+)\/close$/);
+          if (ticketCloseMatch && req.method === 'POST') {
+            const ticketId = ticketCloseMatch[1];
+            const result = await adminApiService.closeTicket(ticketId, adminTelegramId);
+            if (!result.success) { jsonErr(400, result.error || 'Failed to close'); return; }
+
+            // Notify user
+            const ticket = await adminApiService.getTicket(ticketId);
+            if (ticket) {
+              await notificationService.sendToUser(
+                (ticket.ticket as any).user.telegramId,
+                `🔒 <b>Support Ticket Closed</b>\n\n` +
+                `📋 Subject: ${(ticket.ticket as any).subject}\n\n` +
+                `Your ticket has been closed. Open a new ticket if you need further assistance.`,
+                'HTML'
+              );
+            }
+
+            jsonOk({ success: true });
+            return;
+          }
+
+          // GET /api/admin/ticket-counts
+          if (pathname === '/api/admin/ticket-counts' && req.method === 'GET') {
+            const counts = await adminApiService.getTicketCounts();
+            jsonOk(counts);
+            return;
+          }
+
+          // POST /api/admin/broadcast
+          if (pathname === '/api/admin/broadcast' && req.method === 'POST') {
+            let body = '';
+            for await (const chunk of req) body += chunk;
+            let data: { message: string };
+            try { data = JSON.parse(body); } catch { jsonErr(400, 'Invalid JSON'); return; }
+            if (!data.message) { jsonErr(400, 'Message required'); return; }
+
+            const result = await notificationService.broadcast(data.message);
+            await adminApiService.createAuditLog(
+              adminTelegramId,
+              'BROADCAST',
+              'system',
+              undefined,
+              `Sent to ${result.success} users (${result.failed} failed)`
+            );
+            jsonOk({ success: true, sent: result.success, failed: result.failed });
             return;
           }
 

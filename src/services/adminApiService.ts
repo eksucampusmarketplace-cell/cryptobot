@@ -289,6 +289,161 @@ class AdminApiService {
     });
   }
 
+  /**
+   * Get paginated support tickets with optional status filter
+   */
+  async getTickets(
+    page: number,
+    limit: number,
+    status?: string
+  ): Promise<{
+    tickets: unknown[];
+    total: number;
+    pages: number;
+  }> {
+    const skip = (page - 1) * limit;
+    const where: Record<string, unknown> = {};
+    if (status && status !== 'ALL') where.status = status;
+
+    const [tickets, total] = await Promise.all([
+      prisma.supportTicket.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { firstName: true, lastName: true, telegramId: true, username: true } },
+          messages: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+      }),
+      prisma.supportTicket.count({ where }),
+    ]);
+
+    return { tickets, total, pages: Math.ceil(total / limit) };
+  }
+
+  /**
+   * Get a single ticket with all messages
+   */
+  async getTicket(ticketId: string): Promise<{
+    ticket: unknown;
+    messages: unknown[];
+  } | null> {
+    const ticket = await prisma.supportTicket.findUnique({
+      where: { id: ticketId },
+      include: {
+        user: { select: { firstName: true, lastName: true, telegramId: true, username: true } },
+      },
+    });
+
+    if (!ticket) return null;
+
+    const messages = await prisma.ticketMessage.findMany({
+      where: { ticketId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return { ticket, messages };
+  }
+
+  /**
+   * Reply to a support ticket
+   */
+  async replyToTicket(
+    ticketId: string,
+    adminId: string,
+    message: string
+  ): Promise<{ success: boolean; ticket?: unknown; error?: string }> {
+    const ticket = await prisma.supportTicket.findUnique({
+      where: { id: ticketId },
+      include: { user: { select: { telegramId: true } } },
+    });
+
+    if (!ticket) {
+      return { success: false, error: 'Ticket not found' };
+    }
+
+    await prisma.ticketMessage.create({
+      data: {
+        ticketId,
+        senderId: adminId,
+        message,
+        isFromAdmin: true,
+      },
+    });
+
+    await prisma.supportTicket.update({
+      where: { id: ticketId },
+      data: { status: 'WAITING_USER', updatedAt: new Date() },
+    });
+
+    await this.createAuditLog(adminId, 'TICKET_REPLY', 'ticket', ticketId, message.substring(0, 100));
+
+    return { success: true, ticket };
+  }
+
+  /**
+   * Resolve a support ticket
+   */
+  async resolveTicket(ticketId: string, adminId: string): Promise<{ success: boolean; error?: string }> {
+    const ticket = await prisma.supportTicket.findUnique({
+      where: { id: ticketId },
+    });
+
+    if (!ticket) {
+      return { success: false, error: 'Ticket not found' };
+    }
+
+    await prisma.supportTicket.update({
+      where: { id: ticketId },
+      data: { status: 'RESOLVED', closedAt: new Date() },
+    });
+
+    await this.createAuditLog(adminId, 'TICKET_RESOLVED', 'ticket', ticketId);
+
+    return { success: true };
+  }
+
+  /**
+   * Close a support ticket
+   */
+  async closeTicket(ticketId: string, adminId: string): Promise<{ success: boolean; error?: string }> {
+    const ticket = await prisma.supportTicket.findUnique({
+      where: { id: ticketId },
+    });
+
+    if (!ticket) {
+      return { success: false, error: 'Ticket not found' };
+    }
+
+    await prisma.supportTicket.update({
+      where: { id: ticketId },
+      data: { status: 'CLOSED', closedAt: new Date() },
+    });
+
+    await this.createAuditLog(adminId, 'TICKET_CLOSED', 'ticket', ticketId);
+
+    return { success: true };
+  }
+
+  /**
+   * Get ticket counts by status
+   */
+  async getTicketCounts(): Promise<{ open: number; inProgress: number; waitingUser: number; resolved: number; closed: number }> {
+    const [open, inProgress, waitingUser, resolved, closed] = await Promise.all([
+      prisma.supportTicket.count({ where: { status: 'OPEN' } }),
+      prisma.supportTicket.count({ where: { status: 'IN_PROGRESS' } }),
+      prisma.supportTicket.count({ where: { status: 'WAITING_USER' } }),
+      prisma.supportTicket.count({ where: { status: 'RESOLVED' } }),
+      prisma.supportTicket.count({ where: { status: 'CLOSED' } }),
+    ]);
+
+    return { open, inProgress, waitingUser, resolved, closed };
+  }
+
   private async getDailyVolume(days: number): Promise<DailyVolume[]> {
     const result: DailyVolume[] = [];
     for (let i = days - 1; i >= 0; i--) {
