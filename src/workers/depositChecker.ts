@@ -161,8 +161,8 @@ class DepositChecker {
       // Notify user
       await notificationService.notifyUserDepositConfirmed(user.telegramId, tx);
 
-      // Notify admin
-      await notificationService.notifyAdminDeposit({
+      // Notify admin — confirmed deposit needs payout action
+      await notificationService.notifyAdminConfirmedDeposit({
         ...tx,
         user: {
           telegramId: user.telegramId,

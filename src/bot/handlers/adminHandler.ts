@@ -3,8 +3,14 @@ import { Update } from 'telegraf/typings/core/types/typegram';
 import { userService } from '../../services/userService';
 import { transactionService, TransactionStatus } from '../../services/transactionService';
 import notificationService from '../../services/notificationService';
+import adminApiService from '../../services/adminApiService';
 import { config } from '../../config';
-import { getAdminKeyboard, getTransactionActionKeyboard, getPaginationKeyboard } from '../../utils/keyboards';
+import {
+  getAdminKeyboard,
+  getAdminDashboardButton,
+  getTransactionActionKeyboard,
+  getPaginationKeyboard,
+} from '../../utils/keyboards';
 import { SessionState, setSession, clearSession } from '../../utils/session';
 import logger from '../../utils/logger';
 
@@ -14,6 +20,16 @@ export function isAdmin(telegramId: number): boolean {
   return String(telegramId) === config.telegram.adminChatId;
 }
 
+function getAdminDashboardUrl(): string | null {
+  const base =
+    process.env.WEBAPP_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    process.env.SELF_URL;
+  if (!base) return null;
+  const normalized = base.replace(/\/$/, '');
+  return normalized.startsWith('http') ? `${normalized}/admin` : `https://${normalized}/admin`;
+}
+
 export async function handleAdmin(ctx: Context): Promise<void> {
   const telegramId = ctx.from?.id;
   if (!telegramId || !isAdmin(telegramId)) {
@@ -21,11 +37,33 @@ export async function handleAdmin(ctx: Context): Promise<void> {
     return;
   }
 
-  await ctx.reply(
-    '🔐 <b>Admin Panel</b>\n\n' +
-    'Select an action:',
-    { parse_mode: 'HTML', ...getAdminKeyboard() }
-  );
+  const dashboardUrl = getAdminDashboardUrl();
+
+  if (dashboardUrl) {
+    await ctx.reply(
+      '🔐 <b>Admin Panel</b>\n\n' +
+      'Open the full dashboard for analytics, transactions, and user management — ' +
+      'or use the keyboard buttons below.',
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          ...getAdminKeyboard().reply_markup,
+        },
+      }
+    );
+
+    await ctx.reply(
+      '📊 Tap below to open the Admin Dashboard:',
+      getAdminDashboardButton(dashboardUrl)
+    );
+  } else {
+    await ctx.reply(
+      '🔐 <b>Admin Panel</b>\n\n' +
+      'Select an action:\n\n' +
+      '⚠️ Set WEBAPP_URL or RENDER_EXTERNAL_URL to enable the mini app dashboard.',
+      { parse_mode: 'HTML', ...getAdminKeyboard() }
+    );
+  }
 }
 
 export async function handlePendingTransactions(ctx: Context): Promise<void> {
@@ -35,20 +73,20 @@ export async function handlePendingTransactions(ctx: Context): Promise<void> {
   const transactions = await transactionService.getPending();
 
   if (transactions.length === 0) {
-    await ctx.reply('✅ No pending transactions.');
+    await ctx.reply('✅ No pending transactions.', getAdminKeyboard());
     return;
   }
 
   for (const tx of transactions.slice(0, 5)) {
-    const statusEmoji = {
+    const statusEmoji: Record<string, string> = {
       PENDING: '⏳',
       CONFIRMING: '🔄',
       CONFIRMED: '✅',
       PROCESSING: '🔄',
-    }[tx.status] || '❓';
+    };
 
     await ctx.reply(
-      `${statusEmoji} <b>Transaction</b>\n\n` +
+      `${statusEmoji[tx.status] || '❓'} <b>Transaction</b>\n\n` +
       `📝 ID: <code>${tx.id}</code>\n` +
       `👤 User: ${(tx as any).user?.firstName} (${(tx as any).user?.telegramId})\n` +
       `💰 Amount: ${tx.amount} ${tx.cryptocurrency}\n` +
@@ -74,8 +112,7 @@ export async function handleMarkAsPaid(ctx: Context, transactionId: string): Pro
 
   try {
     const transaction = await transactionService.approve(transactionId, String(telegramId), 'Payment sent to user bank account');
-    
-    // Get user info
+
     const txWithUser = await transactionService.getById(transactionId);
     if (txWithUser) {
       await notificationService.notifyUserPaymentSent(
@@ -84,9 +121,16 @@ export async function handleMarkAsPaid(ctx: Context, transactionId: string): Pro
       );
     }
 
+    await adminApiService.createAuditLog(
+      String(telegramId),
+      'APPROVE_TRANSACTION',
+      'transaction',
+      transactionId,
+      `Marked as paid`
+    );
+
     await ctx.reply(
-      `✅ Transaction marked as paid!\n\n` +
-      `User has been notified.`,
+      `✅ Transaction marked as paid!\n\nUser has been notified.`,
       getAdminKeyboard()
     );
 
@@ -103,11 +147,15 @@ export async function handleMarkProcessing(ctx: Context, transactionId: string):
 
   try {
     await transactionService.updateStatus(transactionId, TransactionStatus.PROCESSING);
-    
-    await ctx.reply(
-      '🔄 Transaction marked as processing.',
-      getAdminKeyboard()
+
+    await adminApiService.createAuditLog(
+      String(telegramId),
+      'SET_PROCESSING',
+      'transaction',
+      transactionId
     );
+
+    await ctx.reply('🔄 Transaction marked as processing.', getAdminKeyboard());
   } catch (error) {
     logger.error('Error updating transaction:', error);
     await ctx.reply('❌ Error updating transaction.');
@@ -120,7 +168,7 @@ export async function handleCancelTransaction(ctx: Context, transactionId: strin
 
   try {
     const transaction = await transactionService.cancel(transactionId, 'Cancelled by admin');
-    
+
     const txWithUser = await transactionService.getById(transactionId);
     if (txWithUser) {
       await notificationService.notifyUserTransactionCancelled(
@@ -130,10 +178,15 @@ export async function handleCancelTransaction(ctx: Context, transactionId: strin
       );
     }
 
-    await ctx.reply(
-      '❌ Transaction cancelled. User has been notified.',
-      getAdminKeyboard()
+    await adminApiService.createAuditLog(
+      String(telegramId),
+      'CANCEL_TRANSACTION',
+      'transaction',
+      transactionId,
+      'Cancelled by admin'
     );
+
+    await ctx.reply('❌ Transaction cancelled. User has been notified.', getAdminKeyboard());
   } catch (error) {
     logger.error('Error cancelling transaction:', error);
     await ctx.reply('❌ Error cancelling transaction.');
@@ -170,9 +223,11 @@ export async function handleStats(ctx: Context): Promise<void> {
     transactionService.getStats(),
   ]);
 
+  const dashboardUrl = getAdminDashboardUrl();
+
   await ctx.reply(
     `📊 <b>Bot Statistics</b>\n\n` +
-    
+
     `👥 <b>Users:</b>\n` +
     `• Total: ${userStats.totalUsers}\n` +
     `• Verified: ${userStats.verifiedUsers}\n` +
@@ -187,7 +242,10 @@ export async function handleStats(ctx: Context): Promise<void> {
     `💵 <b>Volume:</b>\n` +
     `• Total: $${txStats.totalVolumeUsd.toFixed(2)}\n` +
     `• Fees Collected: $${txStats.totalFeesUsd.toFixed(2)}`,
-    { parse_mode: 'HTML' }
+    {
+      parse_mode: 'HTML',
+      ...(dashboardUrl ? getAdminDashboardButton(dashboardUrl) : {}),
+    }
   );
 }
 
@@ -221,6 +279,14 @@ export async function handleBroadcastSend(ctx: Context): Promise<void> {
 
   const result = await notificationService.broadcast(text);
 
+  await adminApiService.createAuditLog(
+    String(telegramId),
+    'BROADCAST',
+    'system',
+    undefined,
+    `Sent to ${result.success} users (${result.failed} failed)`
+  );
+
   clearSession(telegramId);
 
   await ctx.reply(
@@ -243,6 +309,15 @@ export async function handleBanUser(ctx: Context, targetId: string): Promise<voi
     }
 
     await userService.setBanned(user.id, true);
+
+    await adminApiService.createAuditLog(
+      String(telegramId),
+      'BAN_USER',
+      'user',
+      user.id,
+      `Banned user ${targetId}`
+    );
+
     await ctx.reply(`✅ User ${user.firstName} (${targetId}) has been banned.`);
   } catch (error) {
     logger.error('Error banning user:', error);
@@ -262,11 +337,43 @@ export async function handleUnbanUser(ctx: Context, targetId: string): Promise<v
     }
 
     await userService.setBanned(user.id, false);
+
+    await adminApiService.createAuditLog(
+      String(telegramId),
+      'UNBAN_USER',
+      'user',
+      user.id,
+      `Unbanned user ${targetId}`
+    );
+
     await ctx.reply(`✅ User ${user.firstName} (${targetId}) has been unbanned.`);
   } catch (error) {
     logger.error('Error unbanning user:', error);
     await ctx.reply('❌ Error unbanning user.');
   }
+}
+
+export async function handleDashboard(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId || !isAdmin(telegramId)) {
+    await ctx.reply('⚠️ Unauthorized access.');
+    return;
+  }
+
+  const dashboardUrl = getAdminDashboardUrl();
+  if (!dashboardUrl) {
+    await ctx.reply(
+      '⚠️ Dashboard URL not configured.\n\n' +
+      'Set WEBAPP_URL or RENDER_EXTERNAL_URL in your environment.',
+      getAdminKeyboard()
+    );
+    return;
+  }
+
+  await ctx.reply(
+    '🛡️ <b>Admin Dashboard</b>\n\nTap below to open the full analytics dashboard:',
+    { parse_mode: 'HTML', ...getAdminDashboardButton(dashboardUrl) }
+  );
 }
 
 export default {
@@ -281,5 +388,6 @@ export default {
   handleBroadcastSend,
   handleBanUser,
   handleUnbanUser,
+  handleDashboard,
   isAdmin,
 };

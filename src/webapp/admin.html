@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Admin Dashboard</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --primary: #6366f1;
+      --primary-dark: #4f46e5;
+      --primary-light: #818cf8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #3b82f6;
+      --bg: #0f172a;
+      --bg-card: #1e293b;
+      --bg-card2: #243044;
+      --border: #334155;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Header ─────────────────────────── */
+    .header {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-logo {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .header-title { font-size: 17px; font-weight: 700; }
+    .header-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+    .header-badge {
+      background: var(--danger);
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 20px;
+      display: none;
+    }
+    .header-badge.show { display: block; }
+
+    /* ── Navigation ─────────────────────── */
+    .nav {
+      display: flex;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .nav::-webkit-scrollbar { display: none; }
+    .nav-btn {
+      flex-shrink: 0;
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      display: flex; align-items: center; gap: 6px;
+      white-space: nowrap;
+      background: none; border-top: none; border-left: none; border-right: none;
+    }
+    .nav-btn.active {
+      color: var(--primary-light);
+      border-bottom-color: var(--primary-light);
+    }
+    .nav-badge {
+      background: var(--danger);
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 10px;
+      min-width: 18px;
+      text-align: center;
+    }
+
+    /* ── Pages ──────────────────────────── */
+    .page { display: none; padding: 16px; }
+    .page.active { display: block; }
+
+    /* ── Stat Cards ─────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .stat-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-value { font-size: 26px; font-weight: 800; margin: 6px 0 4px; }
+    .stat-change { font-size: 12px; display: flex; align-items: center; gap: 4px; }
+    .stat-change.up { color: var(--success); }
+    .stat-change.down { color: var(--danger); }
+    .stat-change.neutral { color: var(--text-muted); }
+    .stat-icon { font-size: 22px; margin-bottom: 8px; }
+
+    /* ── Section Headers ─────────────────── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .section-title { font-size: 15px; font-weight: 700; }
+    .section-action {
+      font-size: 12px;
+      color: var(--primary-light);
+      cursor: pointer;
+      background: none; border: none; padding: 0;
+    }
+
+    /* ── Activity Feed ──────────────────── */
+    .activity-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+    .activity-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .activity-icon {
+      width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .activity-icon.deposit { background: rgba(34, 197, 94, 0.15); }
+    .activity-icon.user { background: rgba(99, 102, 241, 0.15); }
+    .activity-icon.ticket { background: rgba(245, 158, 11, 0.15); }
+    .activity-icon.approved { background: rgba(34, 197, 94, 0.15); }
+    .activity-icon.cancelled { background: rgba(239, 68, 68, 0.15); }
+    .activity-body { flex: 1; min-width: 0; }
+    .activity-title { font-size: 13px; font-weight: 600; }
+    .activity-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .activity-time { font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
+
+    /* ── Transaction List ───────────────── */
+    .tx-list { display: flex; flex-direction: column; gap: 10px; }
+    .tx-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+    }
+    .tx-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .tx-crypto { display: flex; align-items: center; gap: 8px; }
+    .tx-crypto-icon { font-size: 22px; }
+    .tx-crypto-name { font-size: 14px; font-weight: 700; }
+    .tx-crypto-network { font-size: 11px; color: var(--text-muted); }
+    .tx-amount { text-align: right; }
+    .tx-amount-usd { font-size: 16px; font-weight: 700; }
+    .tx-amount-crypto { font-size: 11px; color: var(--text-muted); }
+    .tx-mid { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+    .tx-user { font-size: 12px; color: var(--text-muted); flex: 1; }
+    .tx-user span { color: var(--text); font-weight: 600; }
+    .tx-bank { font-size: 12px; color: var(--text-muted); }
+    .tx-bank span { color: var(--text); }
+    .tx-status-row { display: flex; align-items: center; justify-content: space-between; }
+    .status-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .status-PENDING { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+    .status-CONFIRMING { background: rgba(59, 130, 246, 0.15); color: var(--info); }
+    .status-CONFIRMED { background: rgba(99, 102, 241, 0.15); color: var(--primary-light); }
+    .status-PROCESSING { background: rgba(59, 130, 246, 0.15); color: var(--info); }
+    .status-COMPLETED { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+    .status-CANCELLED { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+    .status-FAILED { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+    .status-REFUNDED { background: rgba(100, 116, 139, 0.15); color: var(--text-muted); }
+    .tx-actions { display: flex; gap: 6px; }
+    .btn-sm {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-sm:active { opacity: 0.7; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-info { background: var(--info); color: white; }
+    .btn-sm:disabled { opacity: 0.4; cursor: not-allowed; }
+    .tx-time { font-size: 11px; color: var(--text-dim); }
+    .tx-hash { font-size: 11px; color: var(--text-dim); font-family: monospace; word-break: break-all; margin-top: 6px; }
+
+    /* ── User List ───────────────────────── */
+    .user-list { display: flex; flex-direction: column; gap: 10px; }
+    .user-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .user-avatar {
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .user-info { flex: 1; min-width: 0; }
+    .user-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-meta { font-size: 12px; color: var(--text-muted); }
+    .user-bank { font-size: 11px; color: var(--text-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-badges { display: flex; gap: 4px; flex-shrink: 0; flex-direction: column; align-items: flex-end; }
+    .badge {
+      font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px;
+    }
+    .badge-verified { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+    .badge-banned { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+    .badge-unverified { background: rgba(100, 116, 139, 0.15); color: var(--text-muted); }
+    .user-action-btn {
+      font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px; border: none; cursor: pointer;
+    }
+    .user-action-btn.ban { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+    .user-action-btn.unban { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+
+    /* ── Audit Log ──────────────────────── */
+    .audit-list { display: flex; flex-direction: column; gap: 8px; }
+    .audit-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+    }
+    .audit-action { font-size: 13px; font-weight: 600; }
+    .audit-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    .audit-detail { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+    /* ── Filters ────────────────────────── */
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .filter-row::-webkit-scrollbar { display: none; }
+    .filter-btn {
+      flex-shrink: 0;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .filter-btn.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    /* ── Search ─────────────────────────── */
+    .search-box {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: 14px;
+      margin-bottom: 14px;
+    }
+    .search-box:focus { outline: none; border-color: var(--primary); }
+    .search-box::placeholder { color: var(--text-dim); }
+
+    /* ── Pagination ─────────────────────── */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 16px 0;
+    }
+    .page-btn {
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .page-info { font-size: 13px; color: var(--text-muted); }
+
+    /* ── Empty State ────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+
+    /* ── Loading ────────────────────────── */
+    .loading-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(15, 23, 42, 0.85);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .loading-overlay.show { display: flex; }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 13px; color: var(--text-muted); }
+
+    /* ── Toast ──────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--bg-card2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 300;
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      white-space: nowrap;
+      max-width: 90vw;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.success { border-left: 3px solid var(--success); }
+    .toast.error { border-left: 3px solid var(--danger); }
+
+    /* ── Revenue Chart ──────────────────── */
+    .chart-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .chart-title { font-size: 13px; font-weight: 700; color: var(--text-muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 80px; }
+    .bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+    .bar {
+      width: 100%; border-radius: 4px 4px 0 0;
+      background: linear-gradient(to top, var(--primary-dark), var(--primary-light));
+      min-height: 4px;
+      transition: height 0.5s ease;
+    }
+    .bar-label { font-size: 9px; color: var(--text-dim); }
+
+    /* ── Crypto breakdown ───────────────── */
+    .crypto-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .crypto-row:last-child { border-bottom: none; }
+    .crypto-bar-bg { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .crypto-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--primary), var(--primary-light)); }
+    .crypto-name-col { width: 60px; font-size: 12px; font-weight: 700; }
+    .crypto-pct { width: 36px; text-align: right; font-size: 12px; color: var(--text-muted); }
+
+    /* ── Confirm Modal ──────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 250;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 100%;
+      max-width: 340px;
+    }
+    .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .modal-body { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
+    .modal-actions { display: flex; gap: 10px; }
+    .modal-btn {
+      flex: 1; padding: 11px; border-radius: 8px; border: none;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+    }
+    .modal-btn.confirm-approve { background: var(--success); color: white; }
+    .modal-btn.confirm-cancel-tx { background: var(--danger); color: white; }
+    .modal-btn.dismiss { background: var(--border); color: var(--text); }
+
+    /* ── Scrollable content ─────────────── */
+    .scroll-hint { font-size: 11px; color: var(--text-dim); text-align: center; padding: 8px; }
+  </style>
+</head>
+<body>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">Loading dashboard...</div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Confirm Action</div>
+    <div class="modal-body" id="modalBody">Are you sure?</div>
+    <div class="modal-actions">
+      <button class="modal-btn dismiss" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn" id="modalConfirmBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <div class="header-logo">🛡️</div>
+    <div>
+      <div class="header-title">Admin Dashboard</div>
+      <div class="header-sub" id="adminName">Loading...</div>
+    </div>
+  </div>
+  <div class="header-badge" id="pendingBadge">0 Pending</div>
+</div>
+
+<!-- Navigation -->
+<div class="nav">
+  <button class="nav-btn active" onclick="showPage('overview')" id="nav-overview">
+    📊 Overview
+  </button>
+  <button class="nav-btn" onclick="showPage('transactions')" id="nav-transactions">
+    💳 Transactions
+    <span class="nav-badge" id="txNavBadge" style="display:none">0</span>
+  </button>
+  <button class="nav-btn" onclick="showPage('users')" id="nav-users">
+    👥 Users
+  </button>
+  <button class="nav-btn" onclick="showPage('activity')" id="nav-activity">
+    🔔 Activity
+  </button>
+  <button class="nav-btn" onclick="showPage('audit')" id="nav-audit">
+    📋 Audit Log
+  </button>
+</div>
+
+<!-- ── Overview Page ─────────────────────────────────────────── -->
+<div class="page active" id="page-overview">
+  <div style="height:16px"></div>
+
+  <div class="stats-grid" id="statsGrid">
+    <div class="stat-card">
+      <div class="stat-icon">👥</div>
+      <div class="stat-label">Total Users</div>
+      <div class="stat-value" id="statUsers">—</div>
+      <div class="stat-change neutral" id="statUsersToday">Loading...</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">💳</div>
+      <div class="stat-label">Transactions</div>
+      <div class="stat-value" id="statTxTotal">—</div>
+      <div class="stat-change" id="statTxPending">Loading...</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">💵</div>
+      <div class="stat-label">Total Volume</div>
+      <div class="stat-value" id="statVolume">—</div>
+      <div class="stat-change neutral" id="statVolumeLabel">USD</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">💰</div>
+      <div class="stat-label">Fees Earned</div>
+      <div class="stat-value" id="statFees">—</div>
+      <div class="stat-change neutral" id="statFeesLabel">USD</div>
+    </div>
+  </div>
+
+  <!-- Revenue bar chart (last 7 days) -->
+  <div class="chart-card">
+    <div class="chart-title">📈 Daily Volume (Last 7 Days)</div>
+    <div class="bar-chart" id="barChart">
+      <div class="loading-text" style="margin:auto;font-size:12px;color:var(--text-dim)">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Crypto breakdown -->
+  <div class="chart-card">
+    <div class="chart-title">🪙 Crypto Breakdown</div>
+    <div id="cryptoBreakdown">
+      <div class="loading-text" style="font-size:12px;color:var(--text-dim);padding:10px 0">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Quick actions -->
+  <div class="section-header">
+    <div class="section-title">⚡ Quick Actions</div>
+  </div>
+  <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+    <button class="btn-sm btn-info" style="flex:1;padding:12px" onclick="showPage('transactions');filterTransactions('PENDING')">
+      ⏳ Review Pending
+    </button>
+    <button class="btn-sm btn-success" style="flex:1;padding:12px" onclick="loadStats()">
+      🔄 Refresh
+    </button>
+  </div>
+
+  <!-- Recent Activity -->
+  <div class="section-header">
+    <div class="section-title">🔔 Recent Activity</div>
+    <button class="section-action" onclick="showPage('activity')">See all →</button>
+  </div>
+  <div class="activity-list" id="recentActivity">
+    <div class="empty-state"><div class="icon">⏳</div><p>Loading...</p></div>
+  </div>
+</div>
+
+<!-- ── Transactions Page ──────────────────────────────────────── -->
+<div class="page" id="page-transactions">
+  <div style="height:16px"></div>
+
+  <div class="filter-row" id="txFilters">
+    <button class="filter-btn active" onclick="filterTransactions('ALL')">All</button>
+    <button class="filter-btn" onclick="filterTransactions('PENDING')">⏳ Pending</button>
+    <button class="filter-btn" onclick="filterTransactions('CONFIRMING')">🔄 Confirming</button>
+    <button class="filter-btn" onclick="filterTransactions('CONFIRMED')">✅ Confirmed</button>
+    <button class="filter-btn" onclick="filterTransactions('COMPLETED')">💚 Completed</button>
+    <button class="filter-btn" onclick="filterTransactions('CANCELLED')">❌ Cancelled</button>
+  </div>
+
+  <div class="tx-list" id="txList">
+    <div class="empty-state"><div class="icon">⏳</div><p>Loading...</p></div>
+  </div>
+
+  <div class="pagination" id="txPagination" style="display:none">
+    <button class="page-btn" id="txPrevBtn" onclick="changeTxPage(-1)">← Prev</button>
+    <span class="page-info" id="txPageInfo">1 / 1</span>
+    <button class="page-btn" id="txNextBtn" onclick="changeTxPage(1)">Next →</button>
+  </div>
+</div>
+
+<!-- ── Users Page ─────────────────────────────────────────────── -->
+<div class="page" id="page-users">
+  <div style="height:16px"></div>
+
+  <input type="text" class="search-box" placeholder="🔍 Search by name, username, or ID..." id="userSearch" oninput="onUserSearch()">
+
+  <div class="filter-row">
+    <button class="filter-btn active" onclick="filterUsers('ALL')">All</button>
+    <button class="filter-btn" onclick="filterUsers('VERIFIED')">✅ Verified</button>
+    <button class="filter-btn" onclick="filterUsers('BANNED')">🚫 Banned</button>
+  </div>
+
+  <div class="user-list" id="userList">
+    <div class="empty-state"><div class="icon">⏳</div><p>Loading...</p></div>
+  </div>
+
+  <div class="pagination" id="userPagination" style="display:none">
+    <button class="page-btn" id="userPrevBtn" onclick="changeUserPage(-1)">← Prev</button>
+    <span class="page-info" id="userPageInfo">1 / 1</span>
+    <button class="page-btn" id="userNextBtn" onclick="changeUserPage(1)">Next →</button>
+  </div>
+</div>
+
+<!-- ── Activity Page ──────────────────────────────────────────── -->
+<div class="page" id="page-activity">
+  <div style="height:16px"></div>
+  <div class="section-header">
+    <div class="section-title">🔔 All Activity</div>
+    <button class="section-action" onclick="loadActivity()">🔄 Refresh</button>
+  </div>
+  <div class="activity-list" id="fullActivity">
+    <div class="empty-state"><div class="icon">⏳</div><p>Loading...</p></div>
+  </div>
+</div>
+
+<!-- ── Audit Log Page ─────────────────────────────────────────── -->
+<div class="page" id="page-audit">
+  <div style="height:16px"></div>
+  <div class="section-header">
+    <div class="section-title">📋 Admin Audit Log</div>
+    <button class="section-action" onclick="loadAuditLog()">🔄 Refresh</button>
+  </div>
+  <div class="audit-list" id="auditList">
+    <div class="empty-state"><div class="icon">⏳</div><p>Loading...</p></div>
+  </div>
+</div>
+
+<script>
+  const API = window.location.origin;
+  let initData = '';
+  let currentTxPage = 1;
+  let totalTxPages = 1;
+  let currentTxFilter = 'ALL';
+  let currentUserPage = 1;
+  let totalUserPages = 1;
+  let currentUserFilter = 'ALL';
+  let currentUserSearch = '';
+  let userSearchTimer = null;
+  let pendingModal = null;
+
+  // ── Bootstrap ─────────────────────────────────────────────────
+  async function init() {
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+      initData = window.Telegram.WebApp.initData || '';
+      const user = window.Telegram.WebApp.initDataUnsafe?.user;
+      if (user) {
+        document.getElementById('adminName').textContent =
+          [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || 'Admin';
+      }
+    }
+
+    if (!initData) {
+      showToast('⚠️ Open from Telegram bot', 'error');
+    }
+
+    await Promise.all([loadStats(), loadActivity(), loadTransactions(), loadUsers()]);
+    loadAuditLog();
+
+    // Auto-refresh every 60s
+    setInterval(() => {
+      loadStats();
+      loadActivity();
+      if (document.getElementById('page-transactions').classList.contains('active')) loadTransactions();
+    }, 60000);
+  }
+
+  // ── Navigation ─────────────────────────────────────────────────
+  function showPage(name) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    document.getElementById('nav-' + name).classList.add('active');
+  }
+
+  // ── API Helper ─────────────────────────────────────────────────
+  async function apiCall(path, method = 'GET', body = null) {
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-init-data': initData,
+    };
+    const opts = { method, headers };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(API + path, opts);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(err.error || 'Request failed');
+    }
+    return res.json();
+  }
+
+  function showLoading(text = 'Loading...') {
+    document.getElementById('loadingText').textContent = text;
+    document.getElementById('loadingOverlay').classList.add('show');
+  }
+  function hideLoading() {
+    document.getElementById('loadingOverlay').classList.remove('show');
+  }
+
+  let toastTimer = null;
+  function showToast(msg, type = 'success') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast ' + type + ' show';
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+  }
+
+  // ── Modal ──────────────────────────────────────────────────────
+  function openModal(title, body, btnClass, btnLabel, onConfirm) {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalBody').textContent = body;
+    const btn = document.getElementById('modalConfirmBtn');
+    btn.className = 'modal-btn ' + btnClass;
+    btn.textContent = btnLabel;
+    pendingModal = onConfirm;
+    document.getElementById('modalOverlay').classList.add('show');
+  }
+  function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('show');
+    pendingModal = null;
+  }
+  document.getElementById('modalConfirmBtn').onclick = async () => {
+    if (pendingModal) {
+      closeModal();
+      await pendingModal();
+    }
+  };
+  document.getElementById('modalOverlay').onclick = (e) => {
+    if (e.target === document.getElementById('modalOverlay')) closeModal();
+  };
+
+  // ── Stats ──────────────────────────────────────────────────────
+  async function loadStats() {
+    try {
+      const data = await apiCall('/api/admin/stats');
+
+      document.getElementById('statUsers').textContent = fmt(data.users.total);
+      document.getElementById('statUsersToday').textContent = '+' + data.users.newToday + ' today';
+      document.getElementById('statUsersToday').className = 'stat-change up';
+
+      document.getElementById('statTxTotal').textContent = fmt(data.transactions.total);
+      const pendingCount = data.transactions.pending;
+      document.getElementById('statTxPending').textContent = pendingCount + ' pending';
+      document.getElementById('statTxPending').className = 'stat-change ' + (pendingCount > 0 ? 'down' : 'neutral');
+
+      document.getElementById('statVolume').textContent = '$' + fmtUsd(data.transactions.totalVolumeUsd);
+      document.getElementById('statFees').textContent = '$' + fmtUsd(data.transactions.totalFeesUsd);
+
+      // Update pending badge
+      const badge = document.getElementById('pendingBadge');
+      const txBadge = document.getElementById('txNavBadge');
+      if (pendingCount > 0) {
+        badge.textContent = pendingCount + ' Pending';
+        badge.classList.add('show');
+        txBadge.textContent = pendingCount;
+        txBadge.style.display = 'inline-block';
+      } else {
+        badge.classList.remove('show');
+        txBadge.style.display = 'none';
+      }
+
+      // Bar chart
+      renderBarChart(data.dailyVolume || []);
+
+      // Crypto breakdown
+      renderCryptoBreakdown(data.cryptoBreakdown || []);
+
+    } catch (e) {
+      console.error('Stats error:', e);
+    }
+  }
+
+  function renderBarChart(days) {
+    const el = document.getElementById('barChart');
+    if (!days.length) { el.innerHTML = '<div class="loading-text" style="margin:auto;font-size:12px;color:var(--text-dim)">No data</div>'; return; }
+    const max = Math.max(...days.map(d => d.volume), 1);
+    el.innerHTML = days.map(d => {
+      const h = Math.max(4, Math.round((d.volume / max) * 72));
+      return `<div class="bar-wrap">
+        <div class="bar" style="height:${h}px" title="$${fmtUsd(d.volume)}"></div>
+        <div class="bar-label">${d.day}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderCryptoBreakdown(items) {
+    const el = document.getElementById('cryptoBreakdown');
+    if (!items.length) { el.innerHTML = '<div style="font-size:12px;color:var(--text-dim);padding:8px 0">No transaction data yet</div>'; return; }
+    const max = Math.max(...items.map(i => i.count), 1);
+    el.innerHTML = items.slice(0, 6).map(i => {
+      const pct = Math.round((i.count / max) * 100);
+      return `<div class="crypto-row">
+        <div class="crypto-name-col">${i.cryptocurrency}</div>
+        <div class="crypto-bar-bg"><div class="crypto-bar-fill" style="width:${pct}%"></div></div>
+        <div class="crypto-pct">${i.count}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Activity ───────────────────────────────────────────────────
+  async function loadActivity() {
+    try {
+      const data = await apiCall('/api/admin/activity');
+      renderActivity(data.events, 'recentActivity', 5);
+      renderActivity(data.events, 'fullActivity', 50);
+    } catch (e) {
+      console.error('Activity error:', e);
+    }
+  }
+
+  function renderActivity(events, containerId, limit) {
+    const el = document.getElementById(containerId);
+    if (!events || !events.length) {
+      el.innerHTML = '<div class="empty-state"><div class="icon">🔕</div><p>No recent activity</p></div>';
+      return;
+    }
+    const iconMap = {
+      deposit: { icon: '💸', cls: 'deposit' },
+      user_registered: { icon: '👤', cls: 'user' },
+      ticket_opened: { icon: '🎫', cls: 'ticket' },
+      tx_approved: { icon: '✅', cls: 'approved' },
+      tx_cancelled: { icon: '❌', cls: 'cancelled' },
+      tx_confirming: { icon: '🔄', cls: 'deposit' },
+    };
+    el.innerHTML = events.slice(0, limit).map(ev => {
+      const m = iconMap[ev.type] || { icon: '📌', cls: 'user' };
+      return `<div class="activity-item">
+        <div class="activity-icon ${m.cls}">${m.icon}</div>
+        <div class="activity-body">
+          <div class="activity-title">${escHtml(ev.title)}</div>
+          <div class="activity-desc">${escHtml(ev.description)}</div>
+        </div>
+        <div class="activity-time">${timeAgo(ev.timestamp)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Transactions ───────────────────────────────────────────────
+  async function loadTransactions() {
+    try {
+      const params = new URLSearchParams({ page: currentTxPage, limit: 10 });
+      if (currentTxFilter !== 'ALL') params.set('status', currentTxFilter);
+      const data = await apiCall('/api/admin/transactions?' + params);
+      totalTxPages = data.pages || 1;
+      renderTransactions(data.transactions || []);
+      updateTxPagination();
+    } catch (e) {
+      document.getElementById('txList').innerHTML =
+        '<div class="empty-state"><div class="icon">❌</div><p>' + escHtml(e.message) + '</p></div>';
+    }
+  }
+
+  function filterTransactions(status) {
+    currentTxFilter = status;
+    currentTxPage = 1;
+    document.querySelectorAll('#txFilters .filter-btn').forEach(b => b.classList.remove('active'));
+    const labels = { ALL:'All', PENDING:'⏳ Pending', CONFIRMING:'🔄 Confirming', CONFIRMED:'✅ Confirmed', COMPLETED:'💚 Completed', CANCELLED:'❌ Cancelled' };
+    document.querySelectorAll('#txFilters .filter-btn').forEach(b => {
+      if (b.textContent.trim() === (labels[status] || status)) b.classList.add('active');
+    });
+    loadTransactions();
+    showPage('transactions');
+  }
+
+  function renderTransactions(txs) {
+    const el = document.getElementById('txList');
+    if (!txs.length) {
+      el.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No transactions found</p></div>';
+      return;
+    }
+    const cryptoEmoji = { BTC:'₿', ETH:'Ξ', USDT:'💵', USDC:'💵', BNB:'🟡', TRX:'🔴' };
+    el.innerHTML = txs.map(tx => {
+      const canAct = ['PENDING','CONFIRMING','CONFIRMED','PROCESSING'].includes(tx.status);
+      const emoji = cryptoEmoji[tx.cryptocurrency] || '🪙';
+      return `<div class="tx-card" id="tx-${tx.id}">
+        <div class="tx-top">
+          <div class="tx-crypto">
+            <div class="tx-crypto-icon">${emoji}</div>
+            <div>
+              <div class="tx-crypto-name">${escHtml(tx.cryptocurrency)}</div>
+              <div class="tx-crypto-network">${escHtml(tx.network)}</div>
+            </div>
+          </div>
+          <div class="tx-amount">
+            <div class="tx-amount-usd">$${fmtUsd(tx.amountUsd || 0)}</div>
+            <div class="tx-amount-crypto">${tx.amount} ${tx.cryptocurrency}</div>
+          </div>
+        </div>
+        <div class="tx-mid">
+          <div class="tx-user">👤 <span>${escHtml(tx.user?.firstName || 'Unknown')}</span>  <small style="color:var(--text-dim)">${tx.user?.telegramId || ''}</small></div>
+          <div class="tx-bank">🏦 <span>${escHtml(tx.bankName || '—')}</span></div>
+        </div>
+        ${tx.accountNumber ? `<div class="tx-bank" style="font-size:12px;margin-bottom:8px">📱 ${escHtml(tx.accountNumber)} · ${escHtml(tx.accountName || '')}</div>` : ''}
+        <div class="tx-status-row">
+          <span class="status-badge status-${tx.status}">${tx.status}</span>
+          <div class="tx-actions">
+            ${canAct ? `
+              <button class="btn-sm btn-success" onclick="confirmApproveTx('${tx.id}','${escHtml(tx.user?.firstName || 'this user')}','${fmtUsd(tx.netAmount||0)}')">✅ Paid</button>
+              <button class="btn-sm btn-danger" onclick="confirmCancelTx('${tx.id}')">✕</button>
+            ` : ''}
+          </div>
+        </div>
+        ${tx.txHash ? `<div class="tx-hash">Tx: ${escHtml(tx.txHash)}</div>` : ''}
+        <div class="tx-time">${fmtDate(tx.createdAt)} · Payout: $${fmtUsd(tx.netAmount || 0)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function updateTxPagination() {
+    const el = document.getElementById('txPagination');
+    el.style.display = totalTxPages > 1 ? 'flex' : 'none';
+    document.getElementById('txPageInfo').textContent = currentTxPage + ' / ' + totalTxPages;
+    document.getElementById('txPrevBtn').disabled = currentTxPage <= 1;
+    document.getElementById('txNextBtn').disabled = currentTxPage >= totalTxPages;
+  }
+
+  function changeTxPage(dir) {
+    currentTxPage = Math.max(1, Math.min(totalTxPages, currentTxPage + dir));
+    loadTransactions();
+  }
+
+  async function confirmApproveTx(txId, userName, amount) {
+    openModal(
+      '✅ Approve Payment',
+      `Mark transaction as PAID for ${userName}? This will send a payout notification.\n\nPayout: $${amount}`,
+      'confirm-approve', 'Mark as Paid',
+      () => approveTx(txId)
+    );
+  }
+
+  async function approveTx(txId) {
+    showLoading('Approving transaction...');
+    try {
+      await apiCall('/api/admin/transactions/' + txId + '/approve', 'POST');
+      showToast('✅ Transaction approved!', 'success');
+      await loadTransactions();
+      await loadStats();
+    } catch (e) {
+      showToast('❌ ' + e.message, 'error');
+    } finally {
+      hideLoading();
+    }
+  }
+
+  async function confirmCancelTx(txId) {
+    openModal(
+      '❌ Cancel Transaction',
+      'Cancel this transaction? The user will be notified.',
+      'confirm-cancel-tx', 'Cancel Transaction',
+      () => cancelTx(txId)
+    );
+  }
+
+  async function cancelTx(txId) {
+    showLoading('Cancelling...');
+    try {
+      await apiCall('/api/admin/transactions/' + txId + '/cancel', 'POST');
+      showToast('Transaction cancelled', 'success');
+      await loadTransactions();
+      await loadStats();
+    } catch (e) {
+      showToast('❌ ' + e.message, 'error');
+    } finally {
+      hideLoading();
+    }
+  }
+
+  // ── Users ──────────────────────────────────────────────────────
+  async function loadUsers() {
+    try {
+      const params = new URLSearchParams({ page: currentUserPage, limit: 15 });
+      if (currentUserFilter !== 'ALL') params.set('filter', currentUserFilter);
+      if (currentUserSearch) params.set('search', currentUserSearch);
+      const data = await apiCall('/api/admin/users?' + params);
+      totalUserPages = data.pages || 1;
+      renderUsers(data.users || []);
+      updateUserPagination();
+    } catch (e) {
+      document.getElementById('userList').innerHTML =
+        '<div class="empty-state"><div class="icon">❌</div><p>' + escHtml(e.message) + '</p></div>';
+    }
+  }
+
+  function filterUsers(f) {
+    currentUserFilter = f;
+    currentUserPage = 1;
+    document.querySelectorAll('#page-users .filter-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    loadUsers();
+  }
+
+  function onUserSearch() {
+    if (userSearchTimer) clearTimeout(userSearchTimer);
+    userSearchTimer = setTimeout(() => {
+      currentUserSearch = document.getElementById('userSearch').value.trim();
+      currentUserPage = 1;
+      loadUsers();
+    }, 400);
+  }
+
+  function renderUsers(users) {
+    const el = document.getElementById('userList');
+    if (!users.length) {
+      el.innerHTML = '<div class="empty-state"><div class="icon">👤</div><p>No users found</p></div>';
+      return;
+    }
+    el.innerHTML = users.map(u => {
+      const initials = (u.firstName || '?').charAt(0).toUpperCase();
+      const badgeCls = u.isBanned ? 'badge-banned' : u.isVerified ? 'badge-verified' : 'badge-unverified';
+      const badgeLabel = u.isBanned ? '🚫 Banned' : u.isVerified ? '✅ Verified' : '⏳ Pending';
+      return `<div class="user-card">
+        <div class="user-avatar">${initials}</div>
+        <div class="user-info">
+          <div class="user-name">${escHtml(u.firstName)} ${escHtml(u.lastName || '')}</div>
+          <div class="user-meta">@${escHtml(u.username || 'N/A')} · ${escHtml(u.telegramId)}</div>
+          <div class="user-bank">🏦 ${escHtml(u.bankName || 'No bank set')}</div>
+        </div>
+        <div class="user-badges">
+          <span class="badge ${badgeCls}">${badgeLabel}</span>
+          <button class="user-action-btn ${u.isBanned ? 'unban' : 'ban'}"
+            onclick="${u.isBanned ? `unbanUser('${u.telegramId}','${escHtml(u.firstName)}')` : `banUser('${u.telegramId}','${escHtml(u.firstName)}')`}">
+            ${u.isBanned ? '🔓 Unban' : '🚫 Ban'}
+          </button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function updateUserPagination() {
+    const el = document.getElementById('userPagination');
+    el.style.display = totalUserPages > 1 ? 'flex' : 'none';
+    document.getElementById('userPageInfo').textContent = currentUserPage + ' / ' + totalUserPages;
+    document.getElementById('userPrevBtn').disabled = currentUserPage <= 1;
+    document.getElementById('userNextBtn').disabled = currentUserPage >= totalUserPages;
+  }
+
+  function changeUserPage(dir) {
+    currentUserPage = Math.max(1, Math.min(totalUserPages, currentUserPage + dir));
+    loadUsers();
+  }
+
+  async function banUser(telegramId, name) {
+    openModal('🚫 Ban User', `Ban ${name} (${telegramId})? They won't be able to use the bot.`, 'confirm-cancel-tx', 'Ban User', async () => {
+      showLoading('Banning user...');
+      try {
+        await apiCall('/api/admin/users/' + telegramId + '/ban', 'POST');
+        showToast('User banned', 'success');
+        loadUsers();
+      } catch (e) { showToast('❌ ' + e.message, 'error'); }
+      finally { hideLoading(); }
+    });
+  }
+
+  async function unbanUser(telegramId, name) {
+    openModal('🔓 Unban User', `Unban ${name} (${telegramId})?`, 'confirm-approve', 'Unban User', async () => {
+      showLoading('Unbanning user...');
+      try {
+        await apiCall('/api/admin/users/' + telegramId + '/unban', 'POST');
+        showToast('User unbanned', 'success');
+        loadUsers();
+      } catch (e) { showToast('❌ ' + e.message, 'error'); }
+      finally { hideLoading(); }
+    });
+  }
+
+  // ── Audit Log ──────────────────────────────────────────────────
+  async function loadAuditLog() {
+    try {
+      const data = await apiCall('/api/admin/audit-logs');
+      const el = document.getElementById('auditList');
+      if (!data.logs || !data.logs.length) {
+        el.innerHTML = '<div class="empty-state"><div class="icon">📋</div><p>No audit logs yet</p></div>';
+        return;
+      }
+      el.innerHTML = data.logs.map(log => `
+        <div class="audit-item">
+          <div class="audit-action">${escHtml(log.action)}</div>
+          <div class="audit-meta">👤 Admin ${escHtml(log.adminId)} · ${fmtDate(log.createdAt)}</div>
+          ${log.details ? `<div class="audit-detail">${escHtml(log.details)}</div>` : ''}
+        </div>
+      `).join('');
+    } catch (e) {
+      document.getElementById('auditList').innerHTML =
+        '<div class="empty-state"><div class="icon">❌</div><p>' + escHtml(e.message) + '</p></div>';
+    }
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────
+  function fmt(n) { return Number(n).toLocaleString(); }
+  function fmtUsd(n) { return Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function fmtDate(d) {
+    if (!d) return '—';
+    const dt = new Date(d);
+    return dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short' }) + ' ' + dt.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+  }
+  function timeAgo(d) {
+    if (!d) return '';
+    const s = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s/60) + 'm ago';
+    if (s < 86400) return Math.floor(s/3600) + 'h ago';
+    return Math.floor(s/86400) + 'd ago';
+  }
+
+  // ── Start ──────────────────────────────────────────────────────
+  init();
+</script>
+</body>
+</html>

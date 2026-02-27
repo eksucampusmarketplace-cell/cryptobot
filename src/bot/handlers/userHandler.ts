@@ -1,6 +1,7 @@
 import { Context } from 'telegraf';
 import { Update } from 'telegraf/typings/core/types/typegram';
 import { userService } from '../../services/userService';
+import notificationService from '../../services/notificationService';
 import { SessionState, getSession, setSession, clearSession, updateSessionData } from '../../utils/session';
 import { getMainKeyboard, getBankSelectionKeyboard, getSettingsKeyboard } from '../../utils/keyboards';
 import { BANKS, config } from '../../config';
@@ -123,6 +124,17 @@ export async function handleAccountName(ctx: BotContext): Promise<void> {
     `You can now sell crypto and receive payments to your bank account!`,
     getMainKeyboard()
   );
+
+  // Notify admin of new registration
+  notificationService.notifyAdminNewUser({
+    telegramId: String(telegramId),
+    firstName: user.firstName,
+    lastName: user.lastName,
+    username: user.username,
+    bankName: session.data.bankName as string,
+    accountNumber: session.data.accountNumber as string,
+    accountName,
+  }).catch((err) => logger.warn('Failed to notify admin of new user:', err));
 }
 
 export async function handleSettings(ctx: BotContext): Promise<void> {

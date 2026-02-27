@@ -2,6 +2,7 @@ import { Context } from 'telegraf';
 import { Update } from 'telegraf/typings/core/types/typegram';
 import { prisma } from '../../utils/db';
 import { userService } from '../../services/userService';
+import notificationService from '../../services/notificationService';
 import { SessionState, getSession, setSession, clearSession, updateSessionData } from '../../utils/session';
 import { getSupportTicketKeyboard, getBackKeyboard } from '../../utils/keyboards';
 import logger from '../../utils/logger';
@@ -117,6 +118,14 @@ export async function handleSupportMessage(ctx: Context): Promise<void> {
       `You'll receive a notification when there's a reply.`,
       { parse_mode: 'HTML' }
     );
+
+    // Notify admin of new support ticket
+    notificationService.notifyAdminNewTicket({
+      id: ticket.id,
+      subject: ticket.subject,
+      user: { firstName: user.firstName, telegramId: String(telegramId) },
+    }).catch((err) => logger.warn('Failed to notify admin of new ticket:', err));
+
   } catch (error) {
     logger.error('Error creating support ticket:', error);
     await ctx.reply('❌ An error occurred. Please try again later.');

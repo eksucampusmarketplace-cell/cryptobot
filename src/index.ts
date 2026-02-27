@@ -32,6 +32,7 @@ import {
 
 // Import services
 import notificationService from './services/notificationService';
+import adminApiService from './services/adminApiService';
 import depositChecker from './workers/depositChecker';
 import webhookService from './services/webhookService';
 import ipnService from './services/ipnService';
@@ -106,6 +107,7 @@ class CryptoBot {
 
     // Admin commands
     this.bot.command('admin', adminHandler.handleAdmin);
+    this.bot.command('dashboard', adminHandler.handleDashboard);
     this.bot.command('pending', adminHandler.handlePendingTransactions);
     this.bot.command('users', (ctx) => adminHandler.handleUsers(ctx));
     this.bot.command('stats', adminHandler.handleStats);
@@ -233,9 +235,9 @@ class CryptoBot {
         }
         return true;
 
-      case '⚙️ Settings':
+      case '🛡️ Admin Dashboard':
         if (telegramId && adminHandler.isAdmin(telegramId)) {
-          await ctx.reply('Admin settings coming soon!', getAdminKeyboard());
+          await adminHandler.handleDashboard(ctx);
         }
         return true;
 
@@ -518,6 +520,15 @@ class CryptoBot {
             logger.warn(`Could not send welcome message to user ${user.id}:`, botError);
           }
 
+          // Notify admin of new registration via WebApp
+          notificationService.notifyAdminNewUser({
+            telegramId,
+            firstName: dbUser.firstName,
+            bankName: data.bank_name,
+            accountNumber: data.account_number,
+            accountName: data.account_name,
+          }).catch((err) => logger.warn('Failed to send new-user admin notification:', err));
+
           res.statusCode = 200;
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ success: true }));
@@ -533,7 +544,6 @@ class CryptoBot {
 
       // Serve WebApp registration page
       if (pathname === '/register' || pathname === '/') {
-        // __dirname is dist/ in production and src/ in dev (tsx); check both
         const htmlPath = join(__dirname, 'webapp', 'registration.html');
         const htmlPathFallback = join(__dirname, '..', 'src', 'webapp', 'registration.html');
         const resolvedPath = existsSync(htmlPath) ? htmlPath : htmlPathFallback;
@@ -550,9 +560,197 @@ class CryptoBot {
         return;
       }
 
+      // Serve Admin Dashboard mini app (admin-only)
+      if (pathname === '/admin') {
+        const htmlPath = join(__dirname, 'webapp', 'admin.html');
+        const htmlPathFallback = join(__dirname, '..', 'src', 'webapp', 'admin.html');
+        const resolvedPath = existsSync(htmlPath) ? htmlPath : htmlPathFallback;
+
+        if (existsSync(resolvedPath)) {
+          const html = readFileSync(resolvedPath, 'utf-8');
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'text/html');
+          res.end(html);
+        } else {
+          res.statusCode = 404;
+          res.end('Admin dashboard not found');
+        }
+        return;
+      }
+
+      // ── Admin API ─────────────────────────────────────────────
+      if (pathname?.startsWith('/api/admin/')) {
+        // Auth: require x-init-data header, parse telegramId, verify admin
+        const initDataHeader = req.headers['x-init-data'] as string;
+        if (!initDataHeader) {
+          res.statusCode = 401;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'Unauthorized' }));
+          return;
+        }
+
+        let adminTelegramId: string | null = null;
+        try {
+          const params = new URLSearchParams(initDataHeader);
+          const userJson = params.get('user');
+          if (userJson) {
+            const u = JSON.parse(decodeURIComponent(userJson));
+            adminTelegramId = String(u.id);
+          }
+        } catch {
+          res.statusCode = 401;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'Invalid initData' }));
+          return;
+        }
+
+        if (!adminTelegramId || adminTelegramId !== config.telegram.adminChatId) {
+          res.statusCode = 403;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'Forbidden: admin access only' }));
+          return;
+        }
+
+        const jsonOk = (data: unknown) => {
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify(data));
+        };
+        const jsonErr = (status: number, msg: string) => {
+          res.statusCode = status;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: msg }));
+        };
+
+        try {
+          // GET /api/admin/stats
+          if (pathname === '/api/admin/stats' && req.method === 'GET') {
+            const stats = await adminApiService.getStats();
+            jsonOk(stats);
+            return;
+          }
+
+          // GET /api/admin/activity
+          if (pathname === '/api/admin/activity' && req.method === 'GET') {
+            const events = await adminApiService.getActivity(50);
+            jsonOk({ events });
+            return;
+          }
+
+          // GET /api/admin/transactions
+          if (pathname === '/api/admin/transactions' && req.method === 'GET') {
+            const page = parseInt(query.page as string) || 1;
+            const limit = Math.min(parseInt(query.limit as string) || 10, 50);
+            const status = query.status as string | undefined;
+            const data = await adminApiService.getTransactions(page, limit, status);
+            jsonOk(data);
+            return;
+          }
+
+          // POST /api/admin/transactions/:id/approve
+          const approveMatch = pathname.match(/^\/api\/admin\/transactions\/([^/]+)\/approve$/);
+          if (approveMatch && req.method === 'POST') {
+            const txId = approveMatch[1];
+            const { transactionService: txSvc } = await import('./services/transactionService');
+            const tx = await txSvc.approve(txId, adminTelegramId, 'Approved via admin dashboard');
+            const txWithUser = await txSvc.getById(txId);
+            if (txWithUser) {
+              await notificationService.notifyUserPaymentSent(
+                (txWithUser as any).user.telegramId,
+                tx
+              );
+            }
+            await adminApiService.createAuditLog(
+              adminTelegramId,
+              'APPROVE_TRANSACTION',
+              'transaction',
+              txId,
+              'Approved via admin dashboard'
+            );
+            jsonOk({ success: true });
+            return;
+          }
+
+          // POST /api/admin/transactions/:id/cancel
+          const cancelMatch = pathname.match(/^\/api\/admin\/transactions\/([^/]+)\/cancel$/);
+          if (cancelMatch && req.method === 'POST') {
+            const txId = cancelMatch[1];
+            const { transactionService: txSvc } = await import('./services/transactionService');
+            const tx = await txSvc.cancel(txId, 'Cancelled via admin dashboard');
+            const txWithUser = await txSvc.getById(txId);
+            if (txWithUser) {
+              await notificationService.notifyUserTransactionCancelled(
+                (txWithUser as any).user.telegramId,
+                tx,
+                'Cancelled by admin'
+              );
+            }
+            await adminApiService.createAuditLog(
+              adminTelegramId,
+              'CANCEL_TRANSACTION',
+              'transaction',
+              txId,
+              'Cancelled via admin dashboard'
+            );
+            jsonOk({ success: true });
+            return;
+          }
+
+          // GET /api/admin/users
+          if (pathname === '/api/admin/users' && req.method === 'GET') {
+            const page = parseInt(query.page as string) || 1;
+            const limit = Math.min(parseInt(query.limit as string) || 15, 50);
+            const filter = query.filter as string | undefined;
+            const search = query.search as string | undefined;
+            const data = await adminApiService.getUsers(page, limit, filter, search);
+            jsonOk(data);
+            return;
+          }
+
+          // POST /api/admin/users/:telegramId/ban
+          const banMatch = pathname.match(/^\/api\/admin\/users\/([^/]+)\/ban$/);
+          if (banMatch && req.method === 'POST') {
+            const targetId = banMatch[1];
+            const { userService: uSvc } = await import('./services/userService');
+            const user = await uSvc.findByTelegramId(targetId);
+            if (!user) { jsonErr(404, 'User not found'); return; }
+            await uSvc.setBanned(user.id, true);
+            await adminApiService.createAuditLog(adminTelegramId, 'BAN_USER', 'user', user.id, `Banned via dashboard`);
+            jsonOk({ success: true });
+            return;
+          }
+
+          // POST /api/admin/users/:telegramId/unban
+          const unbanMatch = pathname.match(/^\/api\/admin\/users\/([^/]+)\/unban$/);
+          if (unbanMatch && req.method === 'POST') {
+            const targetId = unbanMatch[1];
+            const { userService: uSvc } = await import('./services/userService');
+            const user = await uSvc.findByTelegramId(targetId);
+            if (!user) { jsonErr(404, 'User not found'); return; }
+            await uSvc.setBanned(user.id, false);
+            await adminApiService.createAuditLog(adminTelegramId, 'UNBAN_USER', 'user', user.id, `Unbanned via dashboard`);
+            jsonOk({ success: true });
+            return;
+          }
+
+          // GET /api/admin/audit-logs
+          if (pathname === '/api/admin/audit-logs' && req.method === 'GET') {
+            const logs = await adminApiService.getAuditLogs(100);
+            jsonOk({ logs });
+            return;
+          }
+
+          jsonErr(404, 'Admin API endpoint not found');
+        } catch (error) {
+          logger.error('Admin API error:', error);
+          const msg = error instanceof Error ? error.message : 'Internal server error';
+          jsonErr(500, msg);
+        }
+        return;
+      }
+
       // Health check endpoint
       if (pathname === '/health') {
-        // Check database connection status
         let dbStatus = 'unknown';
         try {
           await prisma.$queryRaw`SELECT 1`;
@@ -589,6 +787,7 @@ class CryptoBot {
       logger.info(`IPN endpoint: ${base}${webhookService.getWebhookPath()}`);
       logger.info(`Health check: ${base}/health`);
       logger.info(`WebApp registration: ${base}/register`);
+      logger.info(`Admin dashboard: ${base}/admin`);
       logger.info(`API banks: ${base}/api/banks`);
       logger.info(`API resolve-account: ${base}/api/resolve-account`);
     });
