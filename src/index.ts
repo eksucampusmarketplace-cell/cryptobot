@@ -267,18 +267,11 @@ class CryptoBot {
 
   async start() {
     try {
-      // Connect to database
-      await connectWithRetry();
-      logger.info('Database connected');
-
-      // Start deposit checker (as fallback/enhancement to IPN)
-      depositChecker.start();
-
-      // Start keep-alive service to prevent sleeping
-      keepAliveService.start();
-
-      // Always start webhook server for WebApp and API
+      // Start webhook server FIRST so Render can detect the port
       this.startWebhookServer();
+
+      // Connect to database in the background (don't block server startup)
+      this.connectDatabaseAsync();
 
       // Launch bot
       await this.bot.launch();
@@ -299,6 +292,24 @@ class CryptoBot {
     } catch (error) {
       logger.error('Failed to start bot:', error);
       process.exit(1);
+    }
+  }
+
+  private async connectDatabaseAsync() {
+    try {
+      // Connect to database with retry
+      await connectWithRetry();
+      logger.info('Database connected');
+
+      // Start deposit checker only after DB is connected
+      depositChecker.start();
+
+      // Start keep-alive service to prevent sleeping
+      keepAliveService.start();
+    } catch (error) {
+      logger.error('Failed to connect to database:', error);
+      // Don't exit - the bot can still work in limited mode
+      // and the database might come back online
     }
   }
 
@@ -507,10 +518,20 @@ class CryptoBot {
 
       // Health check endpoint
       if (pathname === '/health') {
-        res.statusCode = 200;
+        // Check database connection status
+        let dbStatus = 'unknown';
+        try {
+          await prisma.$queryRaw`SELECT 1`;
+          dbStatus = 'connected';
+        } catch {
+          dbStatus = 'disconnected';
+        }
+
+        res.statusCode = dbStatus === 'connected' ? 200 : 503;
         res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ 
-          status: 'ok', 
+        res.end(JSON.stringify({
+          status: dbStatus === 'connected' ? 'ok' : 'degraded',
+          database: dbStatus,
           ipn: config.ipn.enabled,
           timestamp: new Date().toISOString()
         }));
