@@ -39,50 +39,7 @@ const normalizeDatabaseUrl = (input?: string): string | undefined => {
   }
 };
 
-const getDirectUrl = (input?: string): string | undefined => {
-  if (!input) {
-    return undefined;
-  }
-
-  const trimmed = input.trim().replace(/^"(.*)"$/, '$1').replace(/^'(.*)'$/, '$1');
-
-  if (!trimmed.startsWith('postgres')) {
-    return undefined;
-  }
-
-  try {
-    const url = new URL(trimmed);
-    const isSupabase = url.hostname.endsWith('supabase.co');
-    const isSupabasePooler = url.hostname.includes('pooler.supabase.com');
-
-    if (isSupabasePooler) {
-      const directUrl = new URL(trimmed);
-      directUrl.hostname = directUrl.hostname.replace('-pooler', '');
-      directUrl.port = '5432';
-      directUrl.searchParams.delete('pgbouncer');
-      if (!directUrl.searchParams.has('sslmode')) {
-        directUrl.searchParams.set('sslmode', 'require');
-      }
-      return directUrl.toString();
-    }
-
-    if (isSupabase) {
-      url.port = '5432';
-      url.searchParams.delete('pgbouncer');
-      if (!url.searchParams.has('sslmode')) {
-        url.searchParams.set('sslmode', 'require');
-      }
-      return url.toString();
-    }
-
-    return trimmed;
-  } catch {
-    return undefined;
-  }
-};
-
 const normalizedDatabaseUrl = normalizeDatabaseUrl(process.env.DATABASE_URL);
-const directDatabaseUrl = process.env.DIRECT_DATABASE_URL || getDirectUrl(process.env.DATABASE_URL);
 
 if (normalizedDatabaseUrl) {
   process.env.DATABASE_URL = normalizedDatabaseUrl;
@@ -94,10 +51,6 @@ if (normalizedDatabaseUrl) {
   prismaOptions.datasources = {
     db: { url: normalizedDatabaseUrl },
   };
-
-  if (directDatabaseUrl) {
-    prismaOptions.datasources.db.directUrl = directDatabaseUrl;
-  }
 }
 
 export const prisma =
