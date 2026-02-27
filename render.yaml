@@ -2,8 +2,46 @@ services:
   - type: web
     name: cryptobot
     env: node
-    buildCommand: npm install --include=dev && npm run db:generate && npm run build
-    startCommand: node dist/index.js
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm run db:generate && npx prisma db push && node dist/index.js
     envVars:
       - key: NODE_ENV
         value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ADMIN_CHAT_ID
+        sync: false
+      - key: NOWPAYMENTS_API_KEY
+        sync: false
+      - key: NOWPAYMENTS_IPN_SECRET
+        sync: false
+      - key: NOWPAYMENTS_IPN_ENABLED
+        value: "true"
+      - key: USE_NOWPAYMENTS
+        value: "true"
+      - key: WEBHOOK_URL
+        sync: false
+      - key: WEBAPP_URL
+        sync: false
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: SUPPORTED_CRYPTOS
+        value: "BTC,ETH,USDT,USDC"
+      - key: WALLET_ENCRYPTION_KEY
+        sync: false
+      - key: EXCHANGE_FEE_PERCENT
+        value: "1.5"
+      - key: MIN_DEPOSIT_USD
+        value: "10"
+      - key: MAX_DEPOSIT_USD
+        value: "10000"
+      - key: RATE_LIMIT_MESSAGES
+        value: "5"
+      - key: RATE_LIMIT_WINDOW_MS
+        value: "60000"
+      - key: ADMIN_NOTIFICATIONS
+        value: "true"
+      - key: USER_NOTIFICATIONS
+        value: "true"

@@ -355,7 +355,26 @@ Plus **80+ more cryptocurrencies** available through NOWPayments!
 
 ## 🚢 Deployment
 
-### PM2 (Recommended)
+### Render.com (Recommended - Free Tier Available)
+
+**📖 Full Guide**: See [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) for detailed step-by-step instructions.
+
+**Quick Start**:
+1. Create a PostgreSQL database on Render (free tier)
+2. Connect your GitHub repository
+3. Configure environment variables in Render dashboard
+4. Deploy!
+
+The included `render.yaml` provides one-click deployment with automatic database migrations.
+
+**Key Environment Variables for Render**:
+- `DATABASE_URL` - Your PostgreSQL connection string
+- `TELEGRAM_BOT_TOKEN` - Bot token from @BotFather
+- `ADMIN_CHAT_ID` - Your Telegram Chat ID
+- `NOWPAYMENTS_API_KEY` - Payment processing
+- `PAYSTACK_SECRET_KEY` - Bank verification
+
+### PM2 (VPS Deployment)
 
 ```bash
 npm install -g pm2
@@ -382,13 +401,6 @@ docker build -t cryptobot .
 docker run -d -p 3001:3001 --env-file .env cryptobot
 ```
 
-### Render.com
-
-The included `render.yaml` provides one-click deployment:
-```bash
-render deploy
-```
-
 ---
 
 ## 📈 Monitoring
@@ -413,6 +425,36 @@ Logs are stored in `logs/` directory:
 | Deposits not detected | Verify API keys, check IPN configuration, verify network selection |
 | Database errors | Run `npm run db:push`, check DATABASE_URL, verify permissions |
 | IPN not working | Ensure webhook URL is publicly accessible, verify IPN secret |
+| **Can't reach database server** | See detailed database troubleshooting below |
+
+### Database Connection Issues
+
+If you see `PrismaClientInitializationError: Can't reach database server`:
+
+**On Render:**
+1. Verify your PostgreSQL database is in "Available" status
+2. Ensure database and web service are in the **same region**
+3. Check `DATABASE_URL` is using the **Internal Database URL** (not external)
+4. Make sure you're using PostgreSQL, not Supabase connection string
+5. See [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) for detailed setup
+
+**Locally:**
+1. Check database is running: `npm run db:studio`
+2. Verify DATABASE_URL in `.env` is correct
+3. For PostgreSQL: `postgresql://user:password@localhost:5432/cryptobot`
+4. For SQLite: `file:./dev.db`
+
+**Common Database URL formats:**
+```bash
+# Render PostgreSQL (Internal)
+postgresql://user:pass@dpg-xxx.region-postgres.render.com/dbname
+
+# Local PostgreSQL
+postgresql://user:password@localhost:5432/cryptobot
+
+# SQLite (development only)
+file:./dev.db
+```
 
 ---
 
