@@ -348,6 +348,38 @@ Or use the **Connect** button in Render's database dashboard to use psql or othe
 3. Verify `DATABASE_URL` is correct
 4. Check if database has reached connection limits
 
+### Issue: Supabase Database Connection Failed (P1001 Error)
+
+**Symptoms**: 
+```
+Can't reach database server at `db.xxxxx.supabase.co:5432`
+```
+
+**Root Cause**: Supabase direct connections (port 5432) often fail from container environments like Render due to:
+- IPv4 not available on free tier
+- Database paused due to inactivity
+- Connection limits exceeded
+
+**Solution**: Use Supabase's **Connection Pooler** instead:
+
+1. Go to Supabase Dashboard → Project Settings → Database
+2. Find **Connection Pooling** section
+3. Copy the **Session mode** connection string (port 6543)
+4. Update `DATABASE_URL` in Render:
+   ```
+   postgres://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
+   ```
+
+**Important**: 
+- Use port **6543** (pooler), NOT 5432 (direct)
+- The pooler hostname contains `pooler.supabase.com`
+- For Prisma migrations, you may also need to set `DIRECT_DATABASE_URL` to the direct connection string
+
+**Alternative Solutions**:
+1. Enable IPv4 in Supabase (paid feature): Project Settings → Database → IPv4
+2. Wake up paused database by logging into Supabase dashboard
+3. Upgrade Supabase plan to remove connection limits
+
 ### Issue: Bot Not Responding
 
 **Symptoms**: Bot doesn't reply to commands
