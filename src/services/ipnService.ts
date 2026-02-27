@@ -217,12 +217,14 @@ class IPNService {
           `Amount: ${payload.pay_amount} ${payload.pay_currency}\n` +
           `Status: Awaiting admin approval for payout`
         );
-        // Notify admin
+        // Notify admin with actionable dashboard button
         await notificationService.sendToAdmin(
-          `🔔 Confirmed deposit received\n\n` +
-          `Transaction: ${transaction.id}\n` +
-          `Amount: ${payload.pay_amount} ${payload.pay_currency}\n` +
-          `Use /pending to view and process`
+          `✅ <b>DEPOSIT CONFIRMED (IPN)</b>\n\n` +
+          `📝 Transaction: <code>${transaction.id}</code>\n` +
+          `💰 Amount: ${payload.pay_amount} ${payload.pay_currency}\n` +
+          `💵 USD: ${payload.price_amount}\n\n` +
+          `⚠️ Action required: send payout and mark as paid.\n` +
+          `Use /pending or open the admin dashboard.`
         );
         break;
 

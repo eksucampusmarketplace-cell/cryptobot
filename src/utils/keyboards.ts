@@ -16,8 +16,14 @@ export function getAdminKeyboard() {
   return Markup.keyboard([
     ['📋 Pending Transactions', '👥 Users'],
     ['📊 Statistics', '📢 Broadcast'],
-    ['⚙️ Settings', '🔙 Back to User Mode'],
+    ['🛡️ Admin Dashboard', '🔙 Back to User Mode'],
   ]).resize().oneTime();
+}
+
+export function getAdminDashboardButton(url: string) {
+  return Markup.inlineKeyboard([
+    [Markup.button.webApp('🛡️ Open Admin Dashboard', url)],
+  ]);
 }
 
 /**

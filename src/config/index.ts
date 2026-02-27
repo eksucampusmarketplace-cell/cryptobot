@@ -154,11 +154,11 @@ export const BANKS = [
 
 export const ADMIN_COMMANDS = [
   { command: '/admin', description: 'Access admin panel' },
+  { command: '/dashboard', description: 'Open admin dashboard mini app' },
   { command: '/pending', description: 'View pending transactions' },
   { command: '/users', description: 'View all users' },
   { command: '/stats', description: 'View bot statistics' },
   { command: '/broadcast', description: 'Send message to all users' },
-  { command: '/settings', description: 'Bot settings' },
 ];
 
 export const USER_COMMANDS = [
