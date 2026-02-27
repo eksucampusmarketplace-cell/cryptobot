@@ -28,7 +28,11 @@ export async function handleStart(ctx: BotContext): Promise<void> {
   }
 
   // Open WebApp for registration
-  const webappUrl = config.webapp.url || `https://${process.env.RENDER_EXTERNAL_URL || 'localhost:3001'}/register`;
+  // Priority: WEBAPP_URL env var > RENDER_EXTERNAL_URL > localhost
+  const renderUrl = process.env.RENDER_EXTERNAL_URL || process.env.SELF_URL;
+  const webappUrl = config.webapp.url || (renderUrl ? `https://${renderUrl.replace(/^\//, '')}/register` : 'http://localhost:3001/register');
+  
+  logger.info(`WebApp URL: ${webappUrl}, Render URL: ${renderUrl}, Config URL: ${config.webapp.url}`);
 
   await ctx.reply(
     `👋 Welcome to Crypto Exchange Bot!\n\n` +
