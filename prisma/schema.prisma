@@ -1,0 +1,244 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User model - stores Telegram user information and bank details
+model User {
+  id            String   @id @default(cuid())
+  telegramId    String   @unique
+  username      String?
+  firstName     String
+  lastName      String?
+  phoneNumber   String?
+  
+  // Bank details
+  bankName      String?
+  accountNumber String?
+  accountName   String?
+  
+  // Verification
+  isVerified    Boolean  @default(false)
+  isBanned      Boolean  @default(false)
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  wallets       Wallet[]
+  transactions  Transaction[]
+  referrals     Referral[]   @relation("Referrer")
+  referredBy    Referral[]   @relation("Referred")
+  tickets       SupportTicket[]
+  
+  @@map("users")
+}
+
+// Wallet model - generated deposit addresses
+model Wallet {
+  id            String   @id @default(cuid())
+  userId        String
+  cryptocurrency String  // BTC, ETH, USDT, etc.
+  network       String   // mainnet, testnet, erc20, trc20, bep20
+  
+  // Wallet details
+  address       String   @unique
+  privateKey    String?  // Encrypted
+  publicKey     String?
+  
+  // Status
+  isActive      Boolean  @default(true)
+  balance       Float    @default(0)
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions  Transaction[]
+  
+  @@index([address])
+  @@map("wallets")
+}
+
+// Transaction model - all crypto transactions
+// type: DEPOSIT, WITHDRAWAL, EXCHANGE
+// status: PENDING, PROCESSING, CONFIRMING, CONFIRMED, COMPLETED, CANCELLED, FAILED, REFUNDED
+model Transaction {
+  id              String   @id @default(cuid())
+  userId          String
+  walletId        String?
+  
+  // Transaction type (DEPOSIT, WITHDRAWAL, EXCHANGE)
+  type            String
+  
+  // Crypto details
+  cryptocurrency  String
+  network         String
+  amount          Float
+  amountUsd       Float?
+  txHash          String?  @unique
+  fromAddress     String?
+  toAddress       String?
+  
+  // Bank details for payout
+  bankName        String?
+  accountNumber   String?
+  accountName     String?
+  
+  // Exchange rate at time of transaction
+  exchangeRate    Float?
+  
+  // Fee calculation
+  feePercent      Float?
+  feeAmount       Float?
+  netAmount       Float?
+  
+  // Status (PENDING, PROCESSING, CONFIRMING, CONFIRMED, COMPLETED, CANCELLED, FAILED, REFUNDED)
+  status          String   @default("PENDING")
+  
+  // Confirmations (for blockchain)
+  confirmations   Int      @default(0)
+  requiredConfirmations Int @default(3)
+  
+  // Admin actions
+  approvedBy      String?  // Admin telegram ID
+  approvedAt      DateTime?
+  adminNotes      String?
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  completedAt     DateTime?
+  
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet          Wallet?  @relation(fields: [walletId], references: [id])
+  notifications   Notification[]
+  
+  @@index([status])
+  @@index([txHash])
+  @@map("transactions")
+}
+
+// Notification model - track all notifications
+model Notification {
+  id              String   @id @default(cuid())
+  userId          String?
+  transactionId   String?
+  
+  type            String
+  message         String
+  
+  // Delivery status
+  sent            Boolean  @default(false)
+  sentAt          DateTime?
+  error           String?
+  
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  transaction     Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  
+  @@map("notifications")
+}
+
+// Referral model - track referrals
+model Referral {
+  id              String   @id @default(cuid())
+  referrerId      String
+  referredId      String
+  
+  // Bonus
+  bonusAmount     Float?
+  bonusPaid       Boolean  @default(false)
+  
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  referrer        User     @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred        User     @relation("Referred", fields: [referredId], references: [id], onDelete: Cascade)
+  
+  @@unique([referrerId, referredId])
+  @@map("referrals")
+}
+
+// Support ticket model
+// status: OPEN, IN_PROGRESS, WAITING_USER, RESOLVED, CLOSED
+model SupportTicket {
+  id              String   @id @default(cuid())
+  userId          String
+  subject         String
+  status          String   @default("OPEN")
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  closedAt        DateTime?
+  
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages        TicketMessage[]
+  
+  @@map("support_tickets")
+}
+
+// Ticket message model
+model TicketMessage {
+  id              String   @id @default(cuid())
+  ticketId        String
+  senderId        String
+  message         String
+  isFromAdmin     Boolean  @default(false)
+  
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  ticket          SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  @@map("ticket_messages")
+}
+
+// Settings model - bot configuration
+model Setting {
+  id              String   @id @default(cuid())
+  key             String   @unique
+  value           String
+  description     String?
+  
+  updatedAt       DateTime @updatedAt
+  
+  @@map("settings")
+}
+
+// Crypto rate cache
+model CryptoRate {
+  id              String   @id @default(cuid())
+  symbol          String   @unique
+  priceUsd        Float
+  change24h       Float?
+  
+  lastUpdated     DateTime @updatedAt
+  
+  @@map("crypto_rates")
+}
+
+// Audit log for admin actions
+model AuditLog {
+  id              String   @id @default(cuid())
+  adminId         String
+  action          String
+  targetType      String
+  targetId        String?
+  details         String?
+  
+  createdAt       DateTime @default(now())
+  
+  @@map("audit_logs")
+}
