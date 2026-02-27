@@ -471,15 +471,18 @@ class CryptoBot {
           });
 
           if (!dbUser) {
+            logger.info(`Creating new user with telegramId: ${telegramId}`);
             dbUser = await prisma.user.create({
               data: {
                 telegramId,
                 firstName: 'User',
               },
             });
+            logger.info(`User created with id: ${dbUser.id}`);
           }
 
           // Update bank details
+          logger.info(`Updating bank details for user ${dbUser.id}`);
           await prisma.user.update({
             where: { id: dbUser.id },
             data: {
@@ -489,6 +492,7 @@ class CryptoBot {
               isVerified: true,
             },
           });
+          logger.info(`Bank details updated successfully for user ${dbUser.id}`);
 
           // Send welcome message to user via bot
           const welcomeMessage = `✅ <b>Registration Complete!</b>\n\n` +
@@ -518,6 +522,7 @@ class CryptoBot {
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ success: true }));
         } catch (error) {
+          logger.error('Failed to save bank details:', error);
           const message = error instanceof Error ? error.message : 'Failed to save bank details';
           res.statusCode = 500;
           res.setHeader('Content-Type', 'application/json');
