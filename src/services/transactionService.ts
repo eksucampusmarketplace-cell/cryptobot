@@ -45,6 +45,7 @@ export interface Transaction {
   status: string;
   confirmations: number;
   requiredConfirmations: number;
+  paymentId: string | null;
   approvedBy: string | null;
   approvedAt: Date | null;
   adminNotes: string | null;
@@ -65,6 +66,7 @@ export interface CreateTransactionData {
   accountNumber?: string;
   accountName?: string;
   requiredConfirmations?: number;
+  paymentId?: string;  // NOWPayments payment_id
 }
 
 export interface TransactionFilter {
@@ -107,6 +109,7 @@ class TransactionService {
         netAmount: exchange.netUsd,
         status: TransactionStatus.PENDING,
         requiredConfirmations: data.requiredConfirmations || 3,
+        paymentId: data.paymentId,
       },
     });
   }
