@@ -5,7 +5,7 @@ import * as userHandler from './userHandler';
 import * as sellHandler from './sellHandler';
 import * as adminHandler from './adminHandler';
 import * as supportHandler from './supportHandler';
-import logger from '../../utils/logger';
+import logger, { logError } from '../../utils/logger';
 
 type BotContext = Context<Update>;
 type CallbackQuery = Update.CallbackQueryUpdate['callback_query'];
@@ -135,7 +135,7 @@ export async function handleCallback(ctx: Context): Promise<void> {
         logger.warn(`Unknown callback action: ${action}`);
     }
   } catch (error) {
-    logger.error(`Error handling callback ${data}:`, error);
+    logError(`Error handling callback ${data}`, error);
     await ctx.reply('❌ An error occurred. Please try again.');
   }
 }

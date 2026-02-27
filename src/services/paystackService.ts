@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { config } from '../config';
-import logger from '../utils/logger';
+import logger, { logError } from '../utils/logger';
 
 export interface PaystackBank {
   id: number;
@@ -57,7 +57,7 @@ class PaystackService {
 
       return response.data.data;
     } catch (error) {
-      logger.error('Error fetching Paystack banks:', error);
+      logError('Error fetching Paystack banks', error);
       throw error;
     }
   }
@@ -82,10 +82,10 @@ class PaystackService {
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.data) {
         const errorData = error.response.data;
-        logger.error('Paystack resolve error:', errorData);
+        logError('Paystack resolve error', errorData);
         throw new Error(errorData.message || 'Failed to resolve account');
       }
-      logger.error('Error resolving Paystack account:', error);
+      logError('Error resolving Paystack account', error);
       throw error;
     }
   }

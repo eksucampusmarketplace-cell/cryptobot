@@ -12,7 +12,7 @@ import {
   getConfirmationKeyboard 
 } from '../../utils/keyboards';
 import { CRYPTO_CONFIG, config } from '../../config';
-import logger from '../../utils/logger';
+import logger, { logError } from '../../utils/logger';
 
 type BotContext = Context<Update>;
 
@@ -382,7 +382,7 @@ export async function handleConfirmSale(ctx: Context): Promise<void> {
       { parse_mode: 'HTML' }
     );
   } catch (error) {
-    logger.error('Error creating transaction:', error);
+    logError('Error creating transaction', error);
     await ctx.reply(
       '❌ An error occurred. Please try again later.',
       getMainKeyboard()

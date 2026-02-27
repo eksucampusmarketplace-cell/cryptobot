@@ -1,5 +1,5 @@
 import axios from 'axios';
-import logger from '../utils/logger';
+import logger, { logError } from '../utils/logger';
 
 export interface NowPaymentsCurrency {
   id: string;
@@ -123,7 +123,7 @@ class NowPaymentsService {
       });
       return response.data.currencies || [];
     } catch (error) {
-      logger.error('Error fetching NOWPayments currencies:', error);
+      logError('Error fetching NOWPayments currencies', error);
       return [];
     }
   }
@@ -138,7 +138,7 @@ class NowPaymentsService {
       });
       return response.data.selectedCurrencies || [];
     } catch (error) {
-      logger.error('Error fetching NOWPayments available currencies:', error);
+      logError('Error fetching NOWPayments available currencies', error);
       return [];
     }
   }
@@ -393,7 +393,7 @@ class NowPaymentsService {
 
       return response.data;
     } catch (error) {
-      logger.error('Error creating NOWPayments payment:', error);
+      logError('Error creating NOWPayments payment', error);
       return null;
     }
   }
@@ -408,7 +408,7 @@ class NowPaymentsService {
       });
       return response.data;
     } catch (error) {
-      logger.error('Error fetching payment status:', error);
+      logError('Error fetching payment status', error);
       return null;
     }
   }
@@ -424,7 +424,7 @@ class NowPaymentsService {
       );
       return response.data.min_amount || 0;
     } catch (error) {
-      logger.error('Error fetching min amount:', error);
+      logError('Error fetching min amount', error);
       return 0;
     }
   }
@@ -444,7 +444,7 @@ class NowPaymentsService {
       );
       return response.data.estimated_amount || null;
     } catch (error) {
-      logger.error('Error fetching estimate:', error);
+      logError('Error fetching estimate', error);
       return null;
     }
   }
@@ -459,7 +459,7 @@ class NowPaymentsService {
       });
       return response.data.currencies || [];
     } catch (error) {
-      logger.error('Error fetching full currencies:', error);
+      logError('Error fetching full currencies', error);
       return [];
     }
   }

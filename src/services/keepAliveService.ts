@@ -1,5 +1,5 @@
 import axios from 'axios';
-import logger from '../utils/logger';
+import logger, { logError } from '../utils/logger';
 import { config } from '../config';
 
 class KeepAliveService {
@@ -55,7 +55,7 @@ class KeepAliveService {
 
       await Promise.allSettled(promises);
     } catch (error) {
-      logger.error('Error in keep-alive service:', error);
+      logError('Error in keep-alive service', error);
     } finally {
       this.isRunning = false;
     }
@@ -77,7 +77,7 @@ class KeepAliveService {
       if (axios.isAxiosError(error)) {
         logger.warn(`Self ping failed for ${healthUrl}: ${error.message}`);
       } else {
-        logger.error('Self ping error:', error);
+        logError('Self ping error', error);
       }
     }
   }
@@ -98,7 +98,7 @@ class KeepAliveService {
       if (axios.isAxiosError(error)) {
         logger.warn(`WebApp ping failed for ${webappUrl}: ${error.message}`);
       } else {
-        logger.error('WebApp ping error:', error);
+        logError('WebApp ping error', error);
       }
     }
   }

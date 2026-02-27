@@ -5,7 +5,7 @@ import { userService } from '../../services/userService';
 import notificationService from '../../services/notificationService';
 import { SessionState, getSession, setSession, clearSession, updateSessionData } from '../../utils/session';
 import { getSupportTicketKeyboard, getBackKeyboard } from '../../utils/keyboards';
-import logger from '../../utils/logger';
+import logger, { logError } from '../../utils/logger';
 
 type BotContext = Context<Update>;
 
@@ -127,7 +127,7 @@ export async function handleSupportMessage(ctx: Context): Promise<void> {
     }).catch((err) => logger.warn('Failed to notify admin of new ticket:', err));
 
   } catch (error) {
-    logger.error('Error creating support ticket:', error);
+    logError('Error creating support ticket', error);
     await ctx.reply('❌ An error occurred. Please try again later.');
   }
 }
@@ -159,7 +159,7 @@ export async function handleResolveTicket(ctx: Context, ticketId: string): Promi
 
     await ctx.reply('✅ Ticket marked as resolved.');
   } catch (error) {
-    logger.error('Error resolving ticket:', error);
+    logError('Error resolving ticket', error);
     await ctx.reply('❌ Error resolving ticket.');
   }
 }
