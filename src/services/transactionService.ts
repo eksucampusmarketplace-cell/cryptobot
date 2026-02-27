@@ -64,6 +64,7 @@ export interface CreateTransactionData {
   bankName?: string;
   accountNumber?: string;
   accountName?: string;
+  requiredConfirmations?: number;
 }
 
 export interface TransactionFilter {
@@ -105,7 +106,7 @@ class TransactionService {
         feeAmount: exchange.feeUsd,
         netAmount: exchange.netUsd,
         status: TransactionStatus.PENDING,
-        requiredConfirmations: 3,
+        requiredConfirmations: data.requiredConfirmations || 3,
       },
     });
   }

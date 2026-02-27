@@ -12,12 +12,14 @@ export const config = {
     minDepositUsd: parseFloat(process.env.MIN_DEPOSIT_USD || '10'),
     maxDepositUsd: parseFloat(process.env.MAX_DEPOSIT_USD || '10000'),
     exchangeFeePercent: parseFloat(process.env.EXCHANGE_FEE_PERCENT || '1.5'),
+    useNowPayments: process.env.USE_NOWPAYMENTS !== 'false', // Default to true
   },
   
   apis: {
     blockcypher: process.env.BLOCKCYPHER_API_KEY || '',
     etherscan: process.env.ETHERSCAN_API_KEY || '',
     trongrid: process.env.TRONGRID_API_KEY || '',
+    nowpayments: process.env.NOWPAYMENTS_API_KEY || '',
   },
   
   wallet: {
@@ -39,12 +41,16 @@ export const config = {
   },
 };
 
+// Base crypto config - will be extended with NOWPayments data
 export const CRYPTO_CONFIG: Record<string, {
   name: string;
   symbol: string;
   networks: string[];
   confirmations: number;
   minAmount: number;
+  logoUrl?: string;
+  priority?: number;
+  isPopular?: boolean;
 }> = {
   BTC: {
     name: 'Bitcoin',
@@ -52,6 +58,8 @@ export const CRYPTO_CONFIG: Record<string, {
     networks: ['mainnet', 'testnet'],
     confirmations: 3,
     minAmount: 0.0001,
+    priority: 0,
+    isPopular: true,
   },
   ETH: {
     name: 'Ethereum',
@@ -59,6 +67,8 @@ export const CRYPTO_CONFIG: Record<string, {
     networks: ['erc20'],
     confirmations: 12,
     minAmount: 0.001,
+    priority: 1,
+    isPopular: true,
   },
   USDT: {
     name: 'Tether USD',
@@ -66,6 +76,8 @@ export const CRYPTO_CONFIG: Record<string, {
     networks: ['erc20', 'trc20', 'bep20'],
     confirmations: 12,
     minAmount: 1,
+    priority: 2,
+    isPopular: true,
   },
   USDC: {
     name: 'USD Coin',
@@ -73,6 +85,8 @@ export const CRYPTO_CONFIG: Record<string, {
     networks: ['erc20', 'trc20', 'bep20'],
     confirmations: 12,
     minAmount: 1,
+    priority: 3,
+    isPopular: true,
   },
   BNB: {
     name: 'BNB',
@@ -80,6 +94,8 @@ export const CRYPTO_CONFIG: Record<string, {
     networks: ['bep20'],
     confirmations: 15,
     minAmount: 0.01,
+    priority: 4,
+    isPopular: true,
   },
   TRX: {
     name: 'Tron',
@@ -87,6 +103,8 @@ export const CRYPTO_CONFIG: Record<string, {
     networks: ['trc20'],
     confirmations: 19,
     minAmount: 10,
+    priority: 9,
+    isPopular: true,
   },
 };
 

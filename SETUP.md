@@ -25,7 +25,28 @@ Example token: 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
 Example: 123456789
 ```
 
-## Step 3: Get Blockchain API Keys
+## Step 3: Get NOWPayments API Key (Required for 100+ coin support)
+
+1. Go to https://account.nowpayments.io/
+2. Sign up for a free account
+3. Complete email verification
+4. Go to "Settings" → "API Keys"
+5. Generate a new API key
+6. Copy the key (starts with `Y9T-` or similar)
+
+```
+Example: Y9T-XXXX-XXXX-XXXX-XXXX
+```
+
+**Why NOWPayments?**
+- Supports 100+ cryptocurrencies
+- Automatic coin availability updates
+- Popular coins appear first in the UI
+- No KYC required for basic usage
+
+## Step 4: Get Blockchain API Keys (Optional)
+
+These are used as fallbacks or for manual transaction tracking:
 
 ### BlockCypher (for Bitcoin)
 1. Go to https://accounts.blockcypher.com/
@@ -45,7 +66,7 @@ Example: 123456789
 2. Sign up and get your API key
 3. Free tier available
 
-## Step 4: Configure Environment
+## Step 5: Configure Environment
 
 Create `.env` file in the project root:
 
@@ -54,10 +75,14 @@ Create `.env` file in the project root:
 TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
 ADMIN_CHAT_ID=123456789
 
-# Supported Cryptos
+# NOWPayments (Required for 100+ coin support)
+NOWPAYMENTS_API_KEY=Y9T-XXXX-XXXX-XXXX-XXXX
+USE_NOWPAYMENTS=true
+
+# Supported Cryptos (used as fallback if NOWPayments is disabled)
 SUPPORTED_CRYPTOS=BTC,ETH,USDT,USDC
 
-# API Keys
+# Blockchain API Keys (Optional - used as fallback)
 BLOCKCYPHER_API_KEY=your_blockcypher_key
 ETHERSCAN_API_KEY=your_etherscan_key
 TRONGRID_API_KEY=your_trongrid_key
@@ -74,13 +99,13 @@ MAX_DEPOSIT_USD=10000
 DATABASE_URL="file:./dev.db"
 ```
 
-## Step 5: Install Dependencies
+## Step 6: Install Dependencies
 
 ```bash
 npm install
 ```
 
-## Step 6: Initialize Database
+## Step 7: Initialize Database
 
 ```bash
 npm run db:push
@@ -88,7 +113,7 @@ npm run db:push
 
 This creates the SQLite database with all tables.
 
-## Step 7: Start the Bot
+## Step 8: Start the Bot
 
 Development mode (with auto-reload):
 ```bash
@@ -101,15 +126,16 @@ npm run build
 npm start
 ```
 
-## Step 8: Test the Bot
+## Step 9: Test the Bot
 
 1. Open Telegram
 2. Search for your bot by username
 3. Send `/start`
 4. Complete registration with bank details
 5. Test the `/sell` flow
+6. You should see ⭐ popular coins listed first
 
-## Step 9: Admin Access
+## Step 10: Admin Access
 
 As the admin (your Chat ID is in ADMIN_CHAT_ID):
 
