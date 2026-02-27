@@ -79,6 +79,12 @@ ADMIN_CHAT_ID=123456789
 NOWPAYMENTS_API_KEY=Y9T-XXXX-XXXX-XXXX-XXXX
 USE_NOWPAYMENTS=true
 
+# IPN Webhooks (Recommended for instant notifications)
+# Get secret from: NOWPayments Dashboard → Settings → IPN
+NOWPAYMENTS_IPN_SECRET=ipn_secret_from_dashboard
+NOWPAYMENTS_IPN_ENABLED=true
+WEBHOOK_PORT=3001
+
 # Supported Cryptos (used as fallback if NOWPayments is disabled)
 SUPPORTED_CRYPTOS=BTC,ETH,USDT,USDC
 
@@ -135,7 +141,32 @@ npm start
 5. Test the `/sell` flow
 6. You should see ⭐ popular coins listed first
 
-## Step 10: Admin Access
+## Step 10: Configure IPN Webhooks (Recommended)
+
+For instant payment notifications:
+
+1. Make your server publicly accessible (use ngrok for local testing):
+   ```bash
+   ngrok http 3001
+   ```
+
+2. In NOWPayments dashboard:
+   - Go to Settings → IPN
+   - Enable IPN
+   - Set URL: `https://your-ngrok-url.ngrok.io/webhook/nowpayments`
+   - Generate and save IPN Secret
+
+3. Update your `.env` with the IPN secret
+
+4. Restart the bot
+
+You'll see webhook confirmation in logs:
+```
+Webhook server listening on port 3001
+IPN webhooks enabled - listening for NOWPayments notifications
+```
+
+## Step 11: Admin Access
 
 As the admin (your Chat ID is in ADMIN_CHAT_ID):
 

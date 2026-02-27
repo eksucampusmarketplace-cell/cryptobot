@@ -22,6 +22,12 @@ export const config = {
     nowpayments: process.env.NOWPAYMENTS_API_KEY || '',
   },
   
+  ipn: {
+    secret: process.env.NOWPAYMENTS_IPN_SECRET || '',
+    enabled: process.env.NOWPAYMENTS_IPN_ENABLED !== 'false',
+    webhookUrl: process.env.WEBHOOK_URL || '',
+  },
+  
   wallet: {
     encryptionKey: process.env.WALLET_ENCRYPTION_KEY || 'default-key-change-in-production',
   },

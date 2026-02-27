@@ -25,6 +25,9 @@ A comprehensive Telegram bot for cryptocurrency exchange with bank transfer payo
 - **Manual Payout Confirmation**: Mark transactions as paid after bank transfer
 
 ### Technical Features
+- **Dual Payment Detection**: IPN webhooks + polling fallback
+- **Instant Notifications**: Real-time payment updates via NOWPayments IPN
+- **Signature Verification**: HMAC-SHA256 webhook authentication
 - **Rate Limiting**: Prevent spam and abuse
 - **Session Management**: Handle multi-step conversations
 - **Automatic Confirmations**: Track blockchain confirmations

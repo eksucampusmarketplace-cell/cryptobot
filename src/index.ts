@@ -1,6 +1,8 @@
 import { Telegraf, Context, session } from 'telegraf';
 import { Update } from 'telegraf/typings/core/types/typegram';
 import * as dotenv from 'dotenv';
+import { createServer, IncomingMessage, ServerResponse } from 'http';
+import { parse } from 'url';
 
 dotenv.config();
 
@@ -29,11 +31,14 @@ import {
 // Import services
 import notificationService from './services/notificationService';
 import depositChecker from './workers/depositChecker';
+import webhookService from './services/webhookService';
+import ipnService from './services/ipnService';
 
 type BotContext = Context<Update>;
 
 class CryptoBot {
   private bot: Telegraf<BotContext>;
+  private webhookServer?: ReturnType<typeof createServer>;
 
   constructor() {
     if (!config.telegram.botToken) {
@@ -44,6 +49,15 @@ class CryptoBot {
     this.setupMiddleware();
     this.setupHandlers();
     this.setupNotificationService();
+    this.setupIPN();
+  }
+
+  private setupIPN() {
+    // Configure IPN service with secret
+    if (config.ipn.secret) {
+      ipnService.setIPNSecret(config.ipn.secret);
+      logger.info('IPN service configured');
+    }
   }
 
   private setupMiddleware() {
@@ -253,12 +267,26 @@ class CryptoBot {
       await prisma.$connect();
       logger.info('Database connected');
 
-      // Start deposit checker
+      // Start deposit checker (as fallback/enhancement to IPN)
       depositChecker.start();
+
+      // Start webhook server for IPN (if enabled)
+      if (config.ipn.enabled) {
+        this.startWebhookServer();
+      }
 
       // Launch bot
       await this.bot.launch();
       logger.info('Bot started successfully');
+
+      // Log IPN status
+      if (config.ipn.enabled && config.ipn.secret) {
+        logger.info('IPN webhooks enabled - listening for NOWPayments notifications');
+      } else if (config.ipn.enabled && !config.ipn.secret) {
+        logger.warn('IPN enabled but no secret configured - signatures will not be verified');
+      } else {
+        logger.info('IPN disabled - using polling only for deposit detection');
+      }
 
       // Enable graceful stop
       process.once('SIGINT', () => this.stop('SIGINT'));
@@ -269,9 +297,60 @@ class CryptoBot {
     }
   }
 
+  /**
+   * Start HTTP server for receiving webhooks
+   */
+  private startWebhookServer() {
+    const port = parseInt(process.env.WEBHOOK_PORT || '3001');
+    
+    this.webhookServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+      const { pathname } = parse(req.url || '', true);
+
+      // Handle NOWPayments IPN webhooks
+      if (pathname === webhookService.getWebhookPath()) {
+        await webhookService.handleWebhook(req, res);
+        return;
+      }
+
+      // Health check endpoint
+      if (pathname === '/health') {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ 
+          status: 'ok', 
+          ipn: config.ipn.enabled,
+          timestamp: new Date().toISOString()
+        }));
+        return;
+      }
+
+      // Default 404
+      res.statusCode = 404;
+      res.end('Not found');
+    });
+
+    this.webhookServer.listen(port, () => {
+      logger.info(`Webhook server listening on port ${port}`);
+      logger.info(`IPN endpoint: http://localhost:${port}${webhookService.getWebhookPath()}`);
+      logger.info(`Health check: http://localhost:${port}/health`);
+    });
+
+    this.webhookServer.on('error', (error) => {
+      logger.error('Webhook server error:', error);
+    });
+  }
+
   private stop(signal: string) {
     logger.info(`Received ${signal}, shutting down...`);
     this.bot.stop(signal);
+    
+    // Close webhook server if running
+    if (this.webhookServer) {
+      this.webhookServer.close(() => {
+        logger.info('Webhook server closed');
+      });
+    }
+    
     prisma.$disconnect();
   }
 }

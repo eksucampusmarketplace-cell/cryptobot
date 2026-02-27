@@ -4,16 +4,32 @@ This document describes the NOWPayments API integration for CryptoBot.
 
 ## Overview
 
-The CryptoBot now uses NOWPayments API to support 100+ cryptocurrencies with popular coins appearing first in the selection UI.
+The CryptoBot uses NOWPayments API to support 100+ cryptocurrencies with:
+- **IPN (Instant Payment Notifications)** - Real-time payment updates via webhooks (recommended)
+- **Polling Fallback** - Traditional blockchain monitoring as backup
+- **Popular Coins First** - Priority display for major cryptocurrencies
 
 ## Features
 
-### 1. All Coins Support
+### 1. Dual Payment Detection System
+
+#### IPN (Primary) - Instant Payment Notifications
+- **Real-time updates** - Receive payment status instantly via webhooks
+- **Signature verification** - Cryptographic verification of notifications
+- **Lower API usage** - Reduces NOWPayments API calls
+- **Faster user experience** - Users get instant confirmation
+
+#### Polling (Fallback) - Blockchain Monitoring
+- **Backup detection** - Catches payments if IPN fails
+- **Non-NOWPayments coins** - Supports coins not using NOWPayments
+- **Verification** - Double-checks IPN notifications
+
+### 2. All Coins Support
 - Supports all cryptocurrencies available on NOWPayments (100+)
 - Automatic coin availability updates via API
 - Multi-network support (ERC20, TRC20, BEP20, Native)
 
-### 2. Popular Coins First
+### 3. Popular Coins First
 Popular coins are displayed with a ⭐ icon and appear first in the list:
 - BTC (Bitcoin)
 - ETH (Ethereum)
@@ -36,7 +52,7 @@ Popular coins are displayed with a ⭐ icon and appear first in the list:
 - XLM (Stellar)
 - ALGO (Algorand)
 
-### 3. Dynamic Configuration
+### 4. Dynamic Configuration
 - Coin configurations are fetched from NOWPayments API
 - Configurations are cached for 5 minutes to reduce API calls
 - Fallback to static config if API is unavailable
@@ -50,9 +66,55 @@ Popular coins are displayed with a ⭐ icon and appear first in the list:
 NOWPAYMENTS_API_KEY=your_api_key_here
 USE_NOWPAYMENTS=true
 
+# IPN (Webhook) Configuration - Highly Recommended
+NOWPAYMENTS_IPN_SECRET=your_ipn_secret_here
+NOWPAYMENTS_IPN_ENABLED=true
+WEBHOOK_URL=https://your-domain.com/webhook/nowpayments
+WEBHOOK_PORT=3001
+
 # Optional - disable NOWPayments and use static config only
 USE_NOWPAYMENTS=false
 SUPPORTED_CRYPTOS=BTC,ETH,USDT,USDC
+```
+
+### IPN (Webhook) Setup
+
+IPN provides **instant payment notifications** and is the recommended way to receive payment updates.
+
+#### Step 1: Configure Environment
+```env
+NOWPAYMENTS_IPN_SECRET=your_secret_from_dashboard
+NOWPAYMENTS_IPN_ENABLED=true
+WEBHOOK_PORT=3001
+```
+
+#### Step 2: Expose Webhook Endpoint
+Your server must be publicly accessible. Options:
+- **Production**: Use a VPS with public IP/domain
+- **Development**: Use ngrok for local testing
+  ```bash
+  ngrok http 3001
+  # Use the https URL as WEBHOOK_URL
+  ```
+
+#### Step 3: Configure in NOWPayments Dashboard
+1. Log in to https://account.nowpayments.io/
+2. Go to **Settings** → **IPN**
+3. Enable IPN
+4. Set URL to: `https://your-domain.com/webhook/nowpayments`
+5. Generate and save the IPN Secret
+6. Copy the secret to your `.env` file
+
+#### Step 4: Restart Bot
+```bash
+npm run dev
+```
+
+You'll see in logs:
+```
+Webhook server listening on port 3001
+IPN endpoint: http://localhost:3001/webhook/nowpayments
+IPN webhooks enabled - listening for NOWPayments notifications
 ```
 
 ### Getting API Key
@@ -64,6 +126,28 @@ SUPPORTED_CRYPTOS=BTC,ETH,USDT,USDC
 
 ## Architecture
 
+### Payment Detection Flow
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   User Sends    │────▶│  NOWPayments    │────▶│  IPN Webhook    │
+│     Crypto      │     │   Receives      │     │   Notification  │
+└─────────────────┘     └─────────────────┘     └────────┬────────┘
+                                                         │
+                                                         ▼
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   User Gets     │◀────│   Transaction   │◀────│   Bot Updates   │
+│   Confirmation  │     │    Updated      │     │    Database     │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+                              │
+                              │ (Fallback)
+                              ▼
+                       ┌─────────────────┐
+                       │ Deposit Checker │
+                       │   (Polling)     │
+                       └─────────────────┘
+```
+
 ### New Files
 
 1. **`src/services/nowpaymentsService.ts`**
@@ -72,6 +156,18 @@ SUPPORTED_CRYPTOS=BTC,ETH,USDT,USDC
    - Processes and sorts currencies (popular first)
    - Creates payments and checks status
    - Caches configurations
+
+2. **`src/services/ipnService.ts`**
+   - Processes NOWPayments IPN notifications
+   - Verifies HMAC-SHA256 signatures
+   - Maps IPN statuses to transaction statuses
+   - Sends notifications to users and admins
+
+3. **`src/services/webhookService.ts`**
+   - HTTP server for receiving webhooks
+   - Handles `/webhook/nowpayments` endpoint
+   - Health check endpoint at `/health`
+   - Compatible with Express or native Node.js HTTP
 
 ### Modified Files
 
@@ -181,19 +277,53 @@ curl -H "x-api-key: YOUR_API_KEY" https://api.nowpayments.io/v1/status
 
 ## Security Considerations
 
-1. **API Key Storage**
-   - Store NOWPayments API key in environment variables
-   - Never commit API keys to git
+### IPN Security
+
+The IPN implementation includes several security measures:
+
+1. **HMAC-SHA256 Signature Verification**
+   - Each IPN notification includes a signature
+   - Signature is verified using your IPN Secret
+   - Prevents spoofed/fake notifications
+
+2. **Timing-Safe Comparison**
+   - Uses `crypto.timingSafeEqual()` to prevent timing attacks
+   - Signature comparison is constant-time
+
+3. **Idempotency**
+   - Duplicate IPN notifications are handled gracefully
+   - Transaction status updates are idempotent
+
+### API Key Storage
+
+1. **Environment Variables**
+   - Store NOWPayments API key and IPN secret in `.env`
+   - Never commit API keys to git (`.gitignore` includes `.env`)
    - Use different keys for dev/production
 
-2. **Rate Limiting**
-   - Configurations cached for 5 minutes
-   - Rate limit your own API calls
-   - Monitor NOWPayments usage
+2. **IPN Secret Protection**
+   - The IPN secret is used to verify webhook authenticity
+   - Keep it secure and rotate periodically
+   - If compromised, generate a new one in dashboard
 
-3. **Webhook Alternative**
-   - Consider using webhooks instead of polling for production
-   - Implement signature verification
+### Rate Limiting
+
+1. **Configuration Caching**
+   - Currency configs cached for 5 minutes
+   - Reduces NOWPayments API calls
+
+2. **Webhook Processing**
+   - Returns 200 OK even on processing errors
+   - Prevents NOWPayments from retrying unnecessarily
+   - Logs errors for investigation
+
+### Webhook Security Checklist
+
+- [ ] Use HTTPS for webhook URL (required for production)
+- [ ] Verify IPN signatures are enabled
+- [ ] Implement webhook authentication
+- [ ] Monitor for unexpected webhook patterns
+- [ ] Log all webhook receipts for audit trail
 
 ## Migration from v1 (without NOWPayments)
 
