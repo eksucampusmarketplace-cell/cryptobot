@@ -36,6 +36,7 @@ import depositChecker from './workers/depositChecker';
 import webhookService from './services/webhookService';
 import ipnService from './services/ipnService';
 import paystackService from './services/paystackService';
+import keepAliveService from './services/keepAliveService';
 
 type BotContext = Context<Update>;
 
@@ -272,6 +273,9 @@ class CryptoBot {
 
       // Start deposit checker (as fallback/enhancement to IPN)
       depositChecker.start();
+
+      // Start keep-alive service to prevent sleeping
+      keepAliveService.start();
 
       // Always start webhook server for WebApp and API
       this.startWebhookServer();
