@@ -2,7 +2,7 @@ import { Context, MiddlewareFn } from 'telegraf';
 import { Update } from 'telegraf/typings/core/types/typegram';
 import { config } from '../../config';
 import { userService } from '../../services/userService';
-import logger from '../../utils/logger';
+import logger, { logError } from '../../utils/logger';
 
 type BotContext = Context<Update>;
 
@@ -78,7 +78,7 @@ export const errorMiddleware: MiddlewareFn<BotContext> = async (ctx, next) => {
   try {
     return await next();
   } catch (error) {
-    logger.error('Bot error:', error);
+    logError('Bot error', error);
     
     try {
       await ctx.reply(

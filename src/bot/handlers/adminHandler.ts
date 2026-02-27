@@ -12,7 +12,7 @@ import {
   getPaginationKeyboard,
 } from '../../utils/keyboards';
 import { SessionState, setSession, clearSession } from '../../utils/session';
-import logger from '../../utils/logger';
+import logger, { logError } from '../../utils/logger';
 
 type BotContext = Context<Update>;
 
@@ -136,7 +136,7 @@ export async function handleMarkAsPaid(ctx: Context, transactionId: string): Pro
 
     logger.info(`Transaction ${transactionId} marked as paid by admin ${telegramId}`);
   } catch (error) {
-    logger.error('Error marking transaction as paid:', error);
+    logError('Error marking transaction as paid', error);
     await ctx.reply('❌ Error updating transaction. Please try again.');
   }
 }
@@ -157,7 +157,7 @@ export async function handleMarkProcessing(ctx: Context, transactionId: string):
 
     await ctx.reply('🔄 Transaction marked as processing.', getAdminKeyboard());
   } catch (error) {
-    logger.error('Error updating transaction:', error);
+    logError('Error updating transaction', error);
     await ctx.reply('❌ Error updating transaction.');
   }
 }
@@ -188,7 +188,7 @@ export async function handleCancelTransaction(ctx: Context, transactionId: strin
 
     await ctx.reply('❌ Transaction cancelled. User has been notified.', getAdminKeyboard());
   } catch (error) {
-    logger.error('Error cancelling transaction:', error);
+    logError('Error cancelling transaction', error);
     await ctx.reply('❌ Error cancelling transaction.');
   }
 }
@@ -320,7 +320,7 @@ export async function handleBanUser(ctx: Context, targetId: string): Promise<voi
 
     await ctx.reply(`✅ User ${user.firstName} (${targetId}) has been banned.`);
   } catch (error) {
-    logger.error('Error banning user:', error);
+    logError('Error banning user', error);
     await ctx.reply('❌ Error banning user.');
   }
 }
@@ -348,7 +348,7 @@ export async function handleUnbanUser(ctx: Context, targetId: string): Promise<v
 
     await ctx.reply(`✅ User ${user.firstName} (${targetId}) has been unbanned.`);
   } catch (error) {
-    logger.error('Error unbanning user:', error);
+    logError('Error unbanning user', error);
     await ctx.reply('❌ Error unbanning user.');
   }
 }

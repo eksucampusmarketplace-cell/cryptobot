@@ -1,5 +1,5 @@
 import { prisma } from '../utils/db';
-import logger from '../utils/logger';
+import logger, { logError } from '../utils/logger';
 import { TransactionStatus } from '../services/transactionService';
 import notificationService from '../services/notificationService';
 import nowpaymentsService from '../services/nowpaymentsService';
@@ -48,11 +48,11 @@ class DepositChecker {
         try {
           await this.checkTransaction(tx as any);
         } catch (error) {
-          logger.error(`Error checking transaction ${tx.id}:`, error);
+          logError(`Error checking transaction ${tx.id}`, error);
         }
       }
     } catch (error) {
-      logger.error('Error in deposit checker:', error);
+      logError('Error in deposit checker', error);
     } finally {
       this.isRunning = false;
     }

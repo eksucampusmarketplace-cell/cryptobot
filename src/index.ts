@@ -10,7 +10,7 @@ dotenv.config();
 
 import { config, USER_COMMANDS, ADMIN_COMMANDS } from './config';
 import { connectWithRetry, prisma } from './utils/db';
-import logger from './utils/logger';
+import logger, { logError } from './utils/logger';
 import { SessionState, getSession, clearSession } from './utils/session';
 import { getMainKeyboard, getAdminKeyboard } from './utils/keyboards';
 
@@ -259,7 +259,7 @@ class CryptoBot {
 
       logger.info('Bot commands registered');
     } catch (error) {
-      logger.error('Error setting commands:', error);
+      logError('Error setting commands', error);
     }
   }
 
@@ -291,15 +291,30 @@ class CryptoBot {
         logger.info('IPN disabled - using polling only for deposit detection');
       }
     } catch (error) {
-      logger.error('Failed to start bot:', error);
+      logError('Failed to start bot', error);
       process.exit(1);
     }
   }
 
-  private async launchWithRetry(maxAttempts = 5): Promise<void> {
+  private async launchWithRetry(maxAttempts = 10): Promise<void> {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        await this.bot.launch({ dropPendingUpdates: true });
+        // On first attempt, try to clear any pending updates to avoid conflicts
+        if (attempt === 1) {
+          try {
+            // Use getUpdates with offset 0 to clear any pending updates
+            // This helps when the previous instance didn't shut down cleanly
+            await this.bot.telegram.callApi('getUpdates', { offset: -1, timeout: 0 });
+            logger.debug('Cleared pending updates');
+          } catch {
+            // Ignore errors when clearing pending updates
+          }
+        }
+        
+        await this.bot.launch({ 
+          dropPendingUpdates: true,
+          allowedUpdates: ['message', 'callback_query', 'inline_query']
+        });
         logger.info('Bot started successfully');
         return;
       } catch (error: any) {
@@ -307,10 +322,14 @@ class CryptoBot {
           (error instanceof Error && error.message.includes('409'));
 
         if (is409 && attempt < maxAttempts) {
-          const waitMs = attempt * 5000;
+          // Exponential backoff with jitter: 3s, 6s, 12s, 24s, 48s, etc.
+          const baseDelay = 3000 * Math.pow(2, attempt - 1);
+          const jitter = Math.random() * 2000; // Add up to 2s of random jitter
+          const waitMs = Math.min(baseDelay + jitter, 60000); // Cap at 60s
+          
           logger.warn(
             `Bot launch conflict (409) - another instance may still be stopping. ` +
-            `Retrying in ${waitMs / 1000}s (attempt ${attempt}/${maxAttempts})...`
+            `Retrying in ${Math.round(waitMs / 1000)}s (attempt ${attempt}/${maxAttempts})...`
           );
           await new Promise((resolve) => setTimeout(resolve, waitMs));
         } else {
@@ -332,7 +351,7 @@ class CryptoBot {
       // Start keep-alive service to prevent sleeping
       keepAliveService.start();
     } catch (error) {
-      logger.error('Failed to connect to database:', error);
+      logError('Failed to connect to database', error);
       // Don't exit - the bot can still work in limited mode
       // and the database might come back online
     }

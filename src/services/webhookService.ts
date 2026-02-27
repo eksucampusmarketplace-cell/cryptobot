@@ -1,5 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import logger from '../utils/logger';
+import logger, { logError } from '../utils/logger';
 import ipnService from './ipnService';
 import { config } from '../config';
 
@@ -64,7 +64,7 @@ class WebhookService {
       }
 
     } catch (error) {
-      logger.error('Error handling webhook:', error);
+      logError('Error handling webhook', error);
       // Return 500 to indicate server error - NOWPayments will retry
       this.sendResponse(res, 500, 'Internal server error');
     }

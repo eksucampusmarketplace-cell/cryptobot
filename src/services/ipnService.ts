@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import logger from '../utils/logger';
+import logger, { logError } from '../utils/logger';
 import { transactionService, TransactionStatus } from './transactionService';
 import notificationService from './notificationService';
 import { config } from '../config';
@@ -95,7 +95,7 @@ class IPNService {
         Buffer.from(digest, 'utf8')
       );
     } catch (error) {
-      logger.error('Error verifying IPN signature:', error);
+      logError('Error verifying IPN signature', error);
       return false;
     }
   }
@@ -185,7 +185,7 @@ class IPNService {
       return true;
 
     } catch (error) {
-      logger.error('Error processing IPN:', error);
+      logError('Error processing IPN', error);
       return false;
     }
   }

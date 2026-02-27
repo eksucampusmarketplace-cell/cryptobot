@@ -2,7 +2,7 @@ import { prisma } from '../utils/db';
 import { Transaction } from '@prisma/client';
 import { Telegraf, Context, Markup } from 'telegraf';
 import { config } from '../config';
-import logger from '../utils/logger';
+import logger, { logError } from '../utils/logger';
 
 class NotificationService {
   private bot: Telegraf<Context> | null = null;
@@ -25,7 +25,7 @@ class NotificationService {
       logger.debug(`Sent notification to user ${telegramId}`);
       return true;
     } catch (error) {
-      logger.error(`Failed to send notification to user ${telegramId}:`, error);
+      logError(`Failed to send notification to user ${telegramId}`, error);
       return false;
     }
   }
@@ -51,7 +51,7 @@ class NotificationService {
       });
       return true;
     } catch (error) {
-      logger.error(`Failed to send admin notification:`, error);
+      logError('Failed to send admin notification', error);
       return false;
     }
   }

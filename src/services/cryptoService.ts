@@ -2,7 +2,7 @@ import axios from 'axios';
 import { ethers, HDNodeWallet, Wordlist } from 'ethers';
 import * as bip39 from 'bip39';
 import { config, CRYPTO_CONFIG } from '../config';
-import logger from '../utils/logger';
+import logger, { logError } from '../utils/logger';
 import nowpaymentsService from './nowpaymentsService';
 
 export interface WalletInfo {
@@ -75,7 +75,7 @@ class CryptoService {
         publicKey: response.data.public,
       };
     } catch (error) {
-      logger.error('Error generating BTC wallet:', error);
+      logError('Error generating BTC wallet', error);
       throw new Error('Failed to generate BTC wallet');
     }
   }
@@ -170,7 +170,7 @@ class CryptoService {
 
       return deposits;
     } catch (error) {
-      logger.error('Error checking BTC deposits:', error);
+      logError('Error checking BTC deposits', error);
       return [];
     }
   }
@@ -201,7 +201,7 @@ class CryptoService {
 
       return deposits;
     } catch (error) {
-      logger.error('Error checking ETH deposits:', error);
+      logError('Error checking ETH deposits', error);
       return [];
     }
   }
@@ -240,7 +240,7 @@ class CryptoService {
 
       return deposits;
     } catch (error) {
-      logger.error('Error checking ERC20 deposits:', error);
+      logError('Error checking ERC20 deposits', error);
       return [];
     }
   }
@@ -292,7 +292,7 @@ class CryptoService {
       }
       return null;
     } catch (error) {
-      logger.error('Error fetching crypto rate:', error);
+      logError('Error fetching crypto rate', error);
       return null;
     }
   }
@@ -358,7 +358,7 @@ class CryptoService {
         
         return rates;
       } catch (error) {
-        logger.error('Error fetching NOWPayments rates, falling back to config:', error);
+        logError('Error fetching NOWPayments rates, falling back to config', error);
       }
     }
     
