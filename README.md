@@ -36,8 +36,11 @@ A comprehensive Telegram bot for cryptocurrency exchange with bank transfer payo
 
 ## 📋 Prerequisites
 
-- Node.js 18+ 
-- SQLite (default) or PostgreSQL
+- Node.js 18+
+- Database:
+  - **Supabase PostgreSQL** (Recommended for production)
+  - SQLite (Development only)
+  - PostgreSQL (Self-hosted)
 - Telegram Bot Token (from @BotFather)
 - NOWPayments API Key (for 100+ cryptocurrency support)
 - (Optional) API Keys for blockchain monitoring:
@@ -68,8 +71,15 @@ Edit `.env` with your configuration:
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 ADMIN_CHAT_ID=your_telegram_id_here
 
+# Required - Database (Supabase recommended)
+# Get connection string from: Supabase Dashboard → Settings → Database → Connection String
+DATABASE_URL="postgresql://postgres:[your-password]@[your-project-ref].supabase.co:5432/postgres"
+
 # Required - NOWPayments (for 100+ coin support)
 NOWPAYMENTS_API_KEY=your_nowpayments_api_key
+
+# Generated encryption key (pre-configured)
+WALLET_ENCRYPTION_KEY=zqrPRhN4Jb7PFraoZ58c8wykShyCxlVGM6Z409jPicI=
 
 # Optional - Blockchain APIs (fallback/manual tracking)
 BLOCKCYPHER_API_KEY=your_key
@@ -291,7 +301,13 @@ CMD ["node", "dist/index.js"]
 
 ```env
 NODE_ENV=production
-DATABASE_URL="postgresql://user:pass@host:5432/cryptobot"
+
+# Supabase Database (recommended)
+DATABASE_URL="postgresql://postgres:[your-password]@[your-project-ref].supabase.co:5432/postgres"
+
+# Or self-hosted PostgreSQL
+# DATABASE_URL="postgresql://user:pass@host:5432/cryptobot"
+
 LOG_LEVEL=info
 ```
 

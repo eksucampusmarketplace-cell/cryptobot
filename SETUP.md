@@ -94,15 +94,21 @@ ETHERSCAN_API_KEY=your_etherscan_key
 TRONGRID_API_KEY=your_trongrid_key
 
 # Wallet Encryption (generate a secure key)
-WALLET_ENCRYPTION_KEY=use-a-long-random-string-here
+WALLET_ENCRYPTION_KEY=zqrPRhN4Jb7PFraoZ58c8wykShyCxlVGM6Z409jPicI=
 
 # Exchange Settings
 EXCHANGE_FEE_PERCENT=1.5
 MIN_DEPOSIT_USD=10
 MAX_DEPOSIT_USD=10000
 
-# Database (SQLite for development)
-DATABASE_URL="file:./dev.db"
+# Database Options:
+
+# Option 1: Supabase PostgreSQL (Recommended for production)
+# Get connection string from: Supabase Dashboard → Settings → Database → Connection String
+DATABASE_URL="postgresql://postgres:[your-password]@[your-project-ref].supabase.co:5432/postgres"
+
+# Option 2: SQLite (Development only)
+# DATABASE_URL="file:./dev.db"
 ```
 
 ## Step 6: Install Dependencies

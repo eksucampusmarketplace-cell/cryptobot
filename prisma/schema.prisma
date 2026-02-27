@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -11,31 +11,31 @@ datasource db {
 model User {
   id            String   @id @default(cuid())
   telegramId    String   @unique
-  username      String?
-  firstName     String
-  lastName      String?
-  phoneNumber   String?
-  
+  username      String?  @db.Text
+  firstName     String   @db.Text
+  lastName      String?  @db.Text
+  phoneNumber   String?  @db.Text
+
   // Bank details
-  bankName      String?
-  accountNumber String?
-  accountName   String?
-  
+  bankName      String?  @db.Text
+  accountNumber String?  @db.Text
+  accountName   String?  @db.Text
+
   // Verification
   isVerified    Boolean  @default(false)
   isBanned      Boolean  @default(false)
-  
+
   // Timestamps
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  createdAt     DateTime @default(now()) @db.Timestamptz
+  updatedAt     DateTime @updatedAt @db.Timestamptz
+
   // Relations
   wallets       Wallet[]
   transactions  Transaction[]
   referrals     Referral[]   @relation("Referrer")
   referredBy    Referral[]   @relation("Referred")
   tickets       SupportTicket[]
-  
+
   @@map("users")
 }
 
@@ -43,26 +43,26 @@ model User {
 model Wallet {
   id            String   @id @default(cuid())
   userId        String
-  cryptocurrency String  // BTC, ETH, USDT, etc.
-  network       String   // mainnet, testnet, erc20, trc20, bep20
-  
+  cryptocurrency String  @db.Text // BTC, ETH, USDT, etc.
+  network       String   @db.Text // mainnet, testnet, erc20, trc20, bep20
+
   // Wallet details
-  address       String   @unique
-  privateKey    String?  // Encrypted
-  publicKey     String?
-  
+  address       String   @unique @db.Text
+  privateKey    String?  @db.Text // Encrypted
+  publicKey     String?  @db.Text
+
   // Status
   isActive      Boolean  @default(true)
   balance       Float    @default(0)
-  
+
   // Timestamps
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  createdAt     DateTime @default(now()) @db.Timestamptz
+  updatedAt     DateTime @updatedAt @db.Timestamptz
+
   // Relations
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions  Transaction[]
-  
+
   @@index([address])
   @@map("wallets")
 }
@@ -74,54 +74,54 @@ model Transaction {
   id              String   @id @default(cuid())
   userId          String
   walletId        String?
-  
+
   // Transaction type (DEPOSIT, WITHDRAWAL, EXCHANGE)
-  type            String
-  
+  type            String   @db.Text
+
   // Crypto details
-  cryptocurrency  String
-  network         String
+  cryptocurrency  String  @db.Text
+  network         String   @db.Text
   amount          Float
   amountUsd       Float?
-  txHash          String?  @unique
-  fromAddress     String?
-  toAddress       String?
-  
+  txHash          String?  @unique @db.Text
+  fromAddress     String?  @db.Text
+  toAddress       String?  @db.Text
+
   // Bank details for payout
-  bankName        String?
-  accountNumber   String?
-  accountName     String?
-  
+  bankName        String?  @db.Text
+  accountNumber   String?  @db.Text
+  accountName     String?  @db.Text
+
   // Exchange rate at time of transaction
   exchangeRate    Float?
-  
+
   // Fee calculation
   feePercent      Float?
   feeAmount       Float?
   netAmount       Float?
-  
+
   // Status (PENDING, PROCESSING, CONFIRMING, CONFIRMED, COMPLETED, CANCELLED, FAILED, REFUNDED)
-  status          String   @default("PENDING")
-  
+  status          String   @default("PENDING") @db.Text
+
   // Confirmations (for blockchain)
   confirmations   Int      @default(0)
   requiredConfirmations Int @default(3)
-  
+
   // Admin actions
-  approvedBy      String?  // Admin telegram ID
-  approvedAt      DateTime?
-  adminNotes      String?
-  
+  approvedBy      String?  @db.Text // Admin telegram ID
+  approvedAt      DateTime? @db.Timestamptz
+  adminNotes      String?  @db.Text
+
   // Timestamps
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  completedAt     DateTime?
-  
+  createdAt       DateTime @default(now()) @db.Timestamptz
+  updatedAt       DateTime @updatedAt @db.Timestamptz
+  completedAt     DateTime? @db.Timestamptz
+
   // Relations
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   wallet          Wallet?  @relation(fields: [walletId], references: [id])
   notifications   Notification[]
-  
+
   @@index([status])
   @@index([txHash])
   @@map("transactions")
@@ -132,20 +132,20 @@ model Notification {
   id              String   @id @default(cuid())
   userId          String?
   transactionId   String?
-  
-  type            String
-  message         String
-  
+
+  type            String   @db.Text
+  message         String   @db.Text
+
   // Delivery status
   sent            Boolean  @default(false)
-  sentAt          DateTime?
-  error           String?
-  
-  createdAt       DateTime @default(now())
-  
+  sentAt          DateTime? @db.Timestamptz
+  error           String?  @db.Text
+
+  createdAt       DateTime @default(now()) @db.Timestamptz
+
   // Relations
   transaction     Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
-  
+
   @@map("notifications")
 }
 
@@ -154,17 +154,17 @@ model Referral {
   id              String   @id @default(cuid())
   referrerId      String
   referredId      String
-  
+
   // Bonus
   bonusAmount     Float?
   bonusPaid       Boolean  @default(false)
-  
-  createdAt       DateTime @default(now())
-  
+
+  createdAt       DateTime @default(now()) @db.Timestamptz
+
   // Relations
   referrer        User     @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
   referred        User     @relation("Referred", fields: [referredId], references: [id], onDelete: Cascade)
-  
+
   @@unique([referrerId, referredId])
   @@map("referrals")
 }
@@ -174,18 +174,18 @@ model Referral {
 model SupportTicket {
   id              String   @id @default(cuid())
   userId          String
-  subject         String
-  status          String   @default("OPEN")
-  
+  subject         String   @db.Text
+  status          String   @default("OPEN") @db.Text
+
   // Timestamps
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  closedAt        DateTime?
-  
+  createdAt       DateTime @default(now()) @db.Timestamptz
+  updatedAt       DateTime @updatedAt @db.Timestamptz
+  closedAt        DateTime? @db.Timestamptz
+
   // Relations
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages        TicketMessage[]
-  
+
   @@map("support_tickets")
 }
 
@@ -194,51 +194,51 @@ model TicketMessage {
   id              String   @id @default(cuid())
   ticketId        String
   senderId        String
-  message         String
+  message         String   @db.Text
   isFromAdmin     Boolean  @default(false)
-  
-  createdAt       DateTime @default(now())
-  
+
+  createdAt       DateTime @default(now()) @db.Timestamptz
+
   // Relations
   ticket          SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  
+
   @@map("ticket_messages")
 }
 
 // Settings model - bot configuration
 model Setting {
   id              String   @id @default(cuid())
-  key             String   @unique
-  value           String
-  description     String?
-  
-  updatedAt       DateTime @updatedAt
-  
+  key             String   @unique @db.Text
+  value           String   @db.Text
+  description     String?  @db.Text
+
+  updatedAt       DateTime @updatedAt @db.Timestamptz
+
   @@map("settings")
 }
 
 // Crypto rate cache
 model CryptoRate {
   id              String   @id @default(cuid())
-  symbol          String   @unique
+  symbol          String   @unique @db.Text
   priceUsd        Float
   change24h       Float?
-  
-  lastUpdated     DateTime @updatedAt
-  
+
+  lastUpdated     DateTime @updatedAt @db.Timestamptz
+
   @@map("crypto_rates")
 }
 
 // Audit log for admin actions
 model AuditLog {
   id              String   @id @default(cuid())
-  adminId         String
-  action          String
-  targetType      String
+  adminId         String   @db.Text
+  action          String   @db.Text
+  targetType      String   @db.Text
   targetId        String?
-  details         String?
-  
-  createdAt       DateTime @default(now())
-  
+  details         String?  @db.Text
+
+  createdAt       DateTime @default(now()) @db.Timestamptz
+
   @@map("audit_logs")
 }
