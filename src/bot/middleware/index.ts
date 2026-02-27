@@ -46,13 +46,19 @@ setInterval(() => {
 
 export const authMiddleware: MiddlewareFn<BotContext> = async (ctx, next) => {
   const telegramId = ctx.from?.id;
-  if (!telegramId) return;
+  if (!telegramId) return next();
 
-  const user = await userService.findByTelegramId(telegramId);
+  try {
+    const user = await userService.findByTelegramId(telegramId);
 
-  if (user?.isBanned) {
-    await ctx.reply('⚠️ Your account has been suspended. Please contact support.');
-    return;
+    if (user?.isBanned) {
+      await ctx.reply('⚠️ Your account has been suspended. Please contact support.');
+      return;
+    }
+  } catch (error) {
+    // If database is unavailable, allow the request to proceed
+    // The bot can still work in degraded mode
+    logger.warn('Database unavailable in authMiddleware, proceeding in degraded mode');
   }
 
   return next();
