@@ -6,7 +6,8 @@ A comprehensive Telegram bot for cryptocurrency exchange with bank transfer payo
 
 ### User Features
 - **User Registration**: Simple onboarding with bank details collection
-- **Multi-Crypto Support**: BTC, ETH, USDT, USDC, BNB, TRX
+- **Multi-Crypto Support**: 100+ cryptocurrencies via NOWPayments API
+- **Popular Coins First**: BTC, ETH, USDT, USDC, BNB, XRP, ADA, DOGE, SOL, TRX, and more
 - **Multi-Network Support**: ERC20, TRC20, BEP20, Native chains
 - **Real-time Rates**: Live cryptocurrency prices with 24h changes
 - **Automatic Deposit Detection**: Bot monitors blockchain for incoming deposits
@@ -24,6 +25,9 @@ A comprehensive Telegram bot for cryptocurrency exchange with bank transfer payo
 - **Manual Payout Confirmation**: Mark transactions as paid after bank transfer
 
 ### Technical Features
+- **Dual Payment Detection**: IPN webhooks + polling fallback
+- **Instant Notifications**: Real-time payment updates via NOWPayments IPN
+- **Signature Verification**: HMAC-SHA256 webhook authentication
 - **Rate Limiting**: Prevent spam and abuse
 - **Session Management**: Handle multi-step conversations
 - **Automatic Confirmations**: Track blockchain confirmations
@@ -35,7 +39,8 @@ A comprehensive Telegram bot for cryptocurrency exchange with bank transfer payo
 - Node.js 18+ 
 - SQLite (default) or PostgreSQL
 - Telegram Bot Token (from @BotFather)
-- API Keys for blockchain monitoring:
+- NOWPayments API Key (for 100+ cryptocurrency support)
+- (Optional) API Keys for blockchain monitoring:
   - BlockCypher API (for Bitcoin)
   - Etherscan API (for Ethereum/ERC20)
   - TronGrid API (for Tron/TRC20)
@@ -63,7 +68,10 @@ Edit `.env` with your configuration:
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 ADMIN_CHAT_ID=your_telegram_id_here
 
-# Optional - Blockchain APIs
+# Required - NOWPayments (for 100+ coin support)
+NOWPAYMENTS_API_KEY=your_nowpayments_api_key
+
+# Optional - Blockchain APIs (fallback/manual tracking)
 BLOCKCYPHER_API_KEY=your_key
 ETHERSCAN_API_KEY=your_key
 TRONGRID_API_KEY=your_key
@@ -156,9 +164,28 @@ MAX_DEPOSIT_USD=10000         # Maximum deposit in USD
 
 ### Supported Cryptocurrencies
 
-Configure in `.env`:
+With NOWPayments integration, the bot supports 100+ cryptocurrencies including:
+
+**Popular Coins (shown first):**
+- BTC (Bitcoin) - Native, Testnet
+- ETH (Ethereum) - ERC20
+- USDT (Tether) - ERC20, TRC20, BEP20
+- USDC (USD Coin) - ERC20, TRC20, BEP20
+- BNB (BNB) - BEP20
+- XRP (XRP) - Native
+- ADA (Cardano) - Native
+- DOGE (Dogecoin) - Native
+- SOL (Solana) - Native
+- TRX (Tron) - TRC20
+- DOT (Polkadot) - Native
+- MATIC (Polygon) - ERC20
+- LTC (Litecoin) - Native
+- And many more...
+
+To configure manually (without NOWPayments), set in `.env`:
 ```env
 SUPPORTED_CRYPTOS=BTC,ETH,USDT,USDC
+USE_NOWPAYMENTS=false
 ```
 
 ### Rate Limiting
@@ -297,12 +324,13 @@ The deposit checker runs every minute and logs status.
 
 ## 📝 API Reference
 
-### Blockchain APIs Used
+### APIs Used
 
-- **BlockCypher**: Bitcoin transactions
-- **Etherscan**: Ethereum/ERC20 transactions
-- **TronGrid**: Tron/TRC20 transactions
+- **NOWPayments**: Cryptocurrency payments, coin availability, address generation
 - **CoinGecko**: Crypto price data
+- **BlockCypher** (fallback): Bitcoin transactions
+- **Etherscan** (fallback): Ethereum/ERC20 transactions
+- **TronGrid** (fallback): Tron/TRC20 transactions
 
 ## 🤝 Contributing
 

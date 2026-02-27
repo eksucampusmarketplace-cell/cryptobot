@@ -3,6 +3,7 @@ import { ethers, HDNodeWallet, Wordlist } from 'ethers';
 import * as bip39 from 'bip39';
 import { config, CRYPTO_CONFIG } from '../config';
 import logger from '../utils/logger';
+import nowpaymentsService from './nowpaymentsService';
 
 export interface WalletInfo {
   address: string;
@@ -262,8 +263,9 @@ class CryptoService {
 
   /**
    * Get current crypto price in USD
+   * Optionally accepts a coingeckoId for better coin identification
    */
-  async getCryptoRate(symbol: string): Promise<CryptoRate | null> {
+  async getCryptoRate(symbol: string, coingeckoId?: string): Promise<CryptoRate | null> {
     const cached = this.rateCache.get(symbol);
     if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
       return {
@@ -274,11 +276,12 @@ class CryptoService {
     }
 
     try {
+      const coinId = coingeckoId || this.getCoinGeckoId(symbol);
       const response = await axios.get(
-        `https://api.coingecko.com/api/v3/simple/price?ids=${this.getCoinGeckoId(symbol)}&vs_currencies=usd&include_24hr_change=true`
+        `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd&include_24hr_change=true`
       );
 
-      const data = response.data[this.getCoinGeckoId(symbol)];
+      const data = response.data[coinId];
       if (data) {
         this.rateCache.set(symbol, { price: data.usd, timestamp: Date.now() });
         return {
@@ -302,15 +305,64 @@ class CryptoService {
       USDC: 'usd-coin',
       BNB: 'binancecoin',
       TRX: 'tron',
+      XRP: 'ripple',
+      ADA: 'cardano',
+      DOGE: 'dogecoin',
+      SOL: 'solana',
+      DOT: 'polkadot',
+      MATIC: 'matic-network',
+      LTC: 'litecoin',
+      BCH: 'bitcoin-cash',
+      LINK: 'chainlink',
+      UNI: 'uniswap',
+      ATOM: 'cosmos',
+      ETC: 'ethereum-classic',
+      XLM: 'stellar',
+      ALGO: 'algorand',
+      AVAX: 'avalanche-2',
+      FTM: 'fantom',
+      NEAR: 'near',
+      APT: 'aptos',
+      OP: 'optimism',
+      ARB: 'arbitrum',
+      TON: 'the-open-network',
+      XMR: 'monero',
+      FIL: 'filecoin',
+      VET: 'vechain',
+      SHIB: 'shiba-inu',
     };
     return ids[symbol.toUpperCase()] || symbol.toLowerCase();
   }
 
   /**
    * Get all supported crypto rates
+   * Supports NOWPayments coins if enabled
    */
   async getAllRates(): Promise<CryptoRate[]> {
     const rates: CryptoRate[] = [];
+    
+    // If NOWPayments is enabled, get rates for all available coins
+    if (config.crypto.useNowPayments && config.apis.nowpayments) {
+      try {
+        const npCurrencies = await nowpaymentsService.getSortedCurrencies();
+        
+        // Get rates for all popular coins + limit to top 50 to avoid rate limiting
+        const coinsToFetch = npCurrencies.slice(0, 50);
+        
+        for (const currency of coinsToFetch) {
+          const rate = await this.getCryptoRate(currency.symbol, currency.coingeckoId);
+          if (rate) {
+            rates.push(rate);
+          }
+        }
+        
+        return rates;
+      } catch (error) {
+        logger.error('Error fetching NOWPayments rates, falling back to config:', error);
+      }
+    }
+    
+    // Fallback to config supported cryptos
     for (const crypto of config.crypto.supportedCryptos) {
       const rate = await this.getCryptoRate(crypto);
       if (rate) {

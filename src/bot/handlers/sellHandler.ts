@@ -4,6 +4,7 @@ import { userService } from '../../services/userService';
 import { walletService } from '../../services/walletService';
 import { transactionService } from '../../services/transactionService';
 import cryptoService from '../../services/cryptoService';
+import nowpaymentsService from '../../services/nowpaymentsService';
 import { SessionState, getSession, setSession, clearSession, updateSessionData } from '../../utils/session';
 import { 
   getMainKeyboard, 
@@ -43,10 +44,13 @@ export async function handleSell(ctx: Context): Promise<void> {
 
   setSession(telegramId, { state: SessionState.SELECTING_CRYPTO, data: {} });
 
+  const keyboard = await getCryptoSelectionKeyboard();
+  
   await ctx.reply(
     '💰 <b>Sell Crypto</b>\n\n' +
-    'Select the cryptocurrency you want to sell:',
-    { parse_mode: 'HTML', ...getCryptoSelectionKeyboard() }
+    'Select the cryptocurrency you want to sell:\n\n' +
+    '⭐ = Popular coins',
+    { parse_mode: 'HTML', ...keyboard }
   );
 }
 
@@ -60,11 +64,27 @@ export async function handleCryptoSelection(ctx: Context, crypto: string): Promi
   updateSessionData(telegramId, { crypto });
   setSession(telegramId, { state: SessionState.SELECTING_NETWORK });
 
-  const cryptoInfo = CRYPTO_CONFIG[crypto];
+  // Try to get crypto info from NOWPayments first
+  let cryptoInfo = CRYPTO_CONFIG[crypto];
+  let networks: string[] = cryptoInfo?.networks || ['mainnet'];
+  let cryptoName = cryptoInfo?.name || crypto;
+  
+  if (config.crypto.useNowPayments && config.apis.nowpayments) {
+    try {
+      const npConfig = await nowpaymentsService.getCryptoConfig();
+      if (npConfig[crypto]) {
+        networks = npConfig[crypto].networks;
+        cryptoName = npConfig[crypto].name;
+      }
+    } catch (error) {
+      // Use fallback config
+    }
+  }
+  
   await ctx.reply(
-    `💰 Selected: <b>${cryptoInfo.name} (${crypto})</b>\n\n` +
+    `💰 Selected: <b>${cryptoName} (${crypto})</b>\n\n` +
     `Select the network:`,
-    { parse_mode: 'HTML', ...getNetworkSelectionKeyboard(crypto) }
+    { parse_mode: 'HTML', ...getNetworkSelectionKeyboard(crypto, networks) }
   );
 }
 
@@ -78,14 +98,41 @@ export async function handleNetworkSelection(ctx: Context, network: string): Pro
   updateSessionData(telegramId, { network });
   setSession(telegramId, { state: SessionState.ENTERING_AMOUNT });
 
-  const cryptoInfo = CRYPTO_CONFIG[session.data.crypto as string];
-  const rate = await cryptoService.getCryptoRate(session.data.crypto as string);
+  const crypto = session.data.crypto as string;
+  
+  // Get crypto info from NOWPayments or fallback
+  let minAmount = 0.01;
+  let cryptoName = crypto;
+  
+  if (config.crypto.useNowPayments && config.apis.nowpayments) {
+    try {
+      const npConfig = await nowpaymentsService.getCryptoConfig();
+      if (npConfig[crypto]) {
+        minAmount = npConfig[crypto].minAmount;
+        cryptoName = npConfig[crypto].name;
+      } else if (CRYPTO_CONFIG[crypto]) {
+        minAmount = CRYPTO_CONFIG[crypto].minAmount;
+        cryptoName = CRYPTO_CONFIG[crypto].name;
+      }
+    } catch (error) {
+      if (CRYPTO_CONFIG[crypto]) {
+        minAmount = CRYPTO_CONFIG[crypto].minAmount;
+        cryptoName = CRYPTO_CONFIG[crypto].name;
+      }
+    }
+  } else if (CRYPTO_CONFIG[crypto]) {
+    minAmount = CRYPTO_CONFIG[crypto].minAmount;
+    cryptoName = CRYPTO_CONFIG[crypto].name;
+  }
+  
+  const rate = await cryptoService.getCryptoRate(crypto);
 
   await ctx.reply(
     `🌐 Network: <b>${network.toUpperCase()}</b>\n\n` +
-    `Current rate: 1 ${session.data.crypto} = $${rate?.priceUsd.toFixed(2) || 'N/A'}\n` +
-    `Minimum: ${cryptoInfo.minAmount} ${session.data.crypto}\n\n` +
-    `Enter the amount of ${session.data.crypto} you want to sell:`,
+    `Selected: <b>${cryptoName} (${crypto})</b>\n` +
+    `Current rate: 1 ${crypto} = ${rate?.priceUsd.toFixed(2) || 'N/A'}\n` +
+    `Minimum: ${minAmount} ${crypto}\n\n` +
+    `Enter the amount of ${crypto} you want to sell:`,
     { parse_mode: 'HTML' }
   );
 }
@@ -106,10 +153,29 @@ export async function handleAmountEntry(ctx: Context): Promise<void> {
   }
 
   const crypto = session.data.crypto as string;
-  const cryptoInfo = CRYPTO_CONFIG[crypto];
+  
+  // Get min amount from NOWPayments or fallback
+  let minAmount = 0.01;
+  
+  if (config.crypto.useNowPayments && config.apis.nowpayments) {
+    try {
+      const npConfig = await nowpaymentsService.getCryptoConfig();
+      if (npConfig[crypto]) {
+        minAmount = npConfig[crypto].minAmount;
+      } else if (CRYPTO_CONFIG[crypto]) {
+        minAmount = CRYPTO_CONFIG[crypto].minAmount;
+      }
+    } catch (error) {
+      if (CRYPTO_CONFIG[crypto]) {
+        minAmount = CRYPTO_CONFIG[crypto].minAmount;
+      }
+    }
+  } else if (CRYPTO_CONFIG[crypto]) {
+    minAmount = CRYPTO_CONFIG[crypto].minAmount;
+  }
 
-  if (amount < cryptoInfo.minAmount) {
-    await ctx.reply(`⚠️ Minimum amount is ${cryptoInfo.minAmount} ${crypto}. Please enter a higher amount:`);
+  if (amount < minAmount) {
+    await ctx.reply(`⚠️ Minimum amount is ${minAmount} ${crypto}. Please enter a higher amount:`);
     return;
   }
 
@@ -166,6 +232,26 @@ export async function handleConfirmSale(ctx: Context): Promise<void> {
   };
 
   try {
+    // Get required confirmations from NOWPayments or fallback
+    let confirmations = 3;
+    
+    if (config.crypto.useNowPayments && config.apis.nowpayments) {
+      try {
+        const npConfig = await nowpaymentsService.getCryptoConfig();
+        if (npConfig[crypto]) {
+          confirmations = npConfig[crypto].confirmations;
+        } else if (CRYPTO_CONFIG[crypto]) {
+          confirmations = CRYPTO_CONFIG[crypto].confirmations;
+        }
+      } catch (error) {
+        if (CRYPTO_CONFIG[crypto]) {
+          confirmations = CRYPTO_CONFIG[crypto].confirmations;
+        }
+      }
+    } else if (CRYPTO_CONFIG[crypto]) {
+      confirmations = CRYPTO_CONFIG[crypto].confirmations;
+    }
+    
     // Generate or get existing wallet
     const wallet = await walletService.getOrCreateForTransaction(user.id, crypto, network);
 
@@ -181,6 +267,7 @@ export async function handleConfirmSale(ctx: Context): Promise<void> {
       bankName: user.bankName || undefined,
       accountNumber: user.accountNumber || undefined,
       accountName: user.accountName || undefined,
+      requiredConfirmations: confirmations,
     });
 
     clearSession(telegramId);
@@ -194,7 +281,7 @@ export async function handleConfirmSale(ctx: Context): Promise<void> {
       `⚠️ <b>Important:</b>\n` +
       `• Send only ${crypto} to this address\n` +
       `• Network: ${network.toUpperCase()}\n` +
-      `• Required confirmations: ${CRYPTO_CONFIG[crypto].confirmations}\n\n` +
+      `• Required confirmations: ${confirmations}\n\n` +
       `We'll notify you once the deposit is confirmed.\n\n` +
       `⏳ Waiting for deposit...`,
       { parse_mode: 'HTML' }
