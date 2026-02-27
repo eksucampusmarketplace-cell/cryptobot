@@ -124,7 +124,7 @@ export async function handleSupportMessage(ctx: Context): Promise<void> {
       id: ticket.id,
       subject: ticket.subject,
       user: { firstName: user.firstName, telegramId: String(telegramId) },
-    }).catch((err) => logger.warn('Failed to notify admin of new ticket:', err));
+    }).catch((err) => logger.warn(`Failed to notify admin of new ticket: ${err instanceof Error ? err.message : String(err)}`));
 
   } catch (error) {
     logError('Error creating support ticket', error);
