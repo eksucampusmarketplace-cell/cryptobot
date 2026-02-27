@@ -33,7 +33,15 @@ function getAdminDashboardUrl(): string | null {
 export async function handleAdmin(ctx: Context): Promise<void> {
   const telegramId = ctx.from?.id;
   if (!telegramId || !isAdmin(telegramId)) {
-    await ctx.reply('⚠️ Unauthorized access.');
+    await ctx.reply(
+      '⚠️ <b>Access Denied</b>\n\n' +
+      'You are not authorized to access the admin panel.\n\n' +
+      'To set up admin access:\n' +
+      '1. Use /myid to get your Telegram Chat ID\n' +
+      '2. Set it as ADMIN_CHAT_ID in your environment variables\n' +
+      '3. Restart the bot',
+      { parse_mode: 'HTML' }
+    );
     return;
   }
 
@@ -356,7 +364,15 @@ export async function handleUnbanUser(ctx: Context, targetId: string): Promise<v
 export async function handleDashboard(ctx: Context): Promise<void> {
   const telegramId = ctx.from?.id;
   if (!telegramId || !isAdmin(telegramId)) {
-    await ctx.reply('⚠️ Unauthorized access.');
+    await ctx.reply(
+      '⚠️ <b>Access Denied</b>\n\n' +
+      'You are not authorized to access the admin panel.\n\n' +
+      'To set up admin access:\n' +
+      '1. Use /myid to get your Telegram Chat ID\n' +
+      '2. Set it as ADMIN_CHAT_ID in your environment variables\n' +
+      '3. Restart the bot',
+      { parse_mode: 'HTML' }
+    );
     return;
   }
 

@@ -17,8 +17,14 @@ Example token: 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
 
 ## Step 2: Get Your Telegram Chat ID
 
+**Option 1 - Using the bot:**
+1. After you start the bot, send `/myid`
+2. The bot will display your Chat ID
+
+**Option 2 - Using external bot:**
 1. Search for @userinfobot on Telegram
 2. Start it and it will reply with your Chat ID
+
 3. Save this - you'll need it for admin access
 
 ```
@@ -265,6 +271,28 @@ pm2 logs cryptobot
 # Restart bot
 pm2 restart cryptobot
 ```
+
+### Cannot access admin panel
+If you receive "Access Denied" when trying to access admin features:
+
+1. **Get your Chat ID**:
+   - Use `/myid` command in the bot
+   - Or chat with @userinfobot on Telegram
+
+2. **Verify configuration**:
+   ```bash
+   # Check your .env file has ADMIN_CHAT_ID set
+   cat .env | grep ADMIN_CHAT_ID
+   ```
+
+3. **Update environment**:
+   - Set `ADMIN_CHAT_ID=your_actual_id` in `.env`
+   - Restart the bot to apply changes
+
+4. **Common issues**:
+   - Using wrong ID (make sure it's your numeric Chat ID, not username)
+   - Forgot to restart bot after changing `.env`
+   - Multiple Chat IDs (only one admin supported in current version)
 
 ### Database locked errors
 ```bash

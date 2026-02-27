@@ -170,5 +170,6 @@ export const USER_COMMANDS = [
   { command: '/settings', description: 'Update your settings' },
   { command: '/referral', description: 'Get your referral link' },
   { command: '/support', description: 'Contact support' },
+  { command: '/myid', description: 'Get your Telegram Chat ID' },
   { command: '/help', description: 'Get help' },
 ];

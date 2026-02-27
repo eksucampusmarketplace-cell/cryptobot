@@ -264,6 +264,7 @@ export async function handleHelp(ctx: BotContext): Promise<void> {
 /referral - Get your referral link
 /support - Contact support
 /help - Show this help message
+/myid - Get your Telegram Chat ID
 
 <b>FAQ:</b>
 • Minimum deposit: $10
@@ -275,6 +276,18 @@ Need more help? Contact support: /support
   `.trim();
 
   await ctx.reply(message, { parse_mode: 'HTML' });
+}
+
+export async function handleMyId(ctx: BotContext): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  await ctx.reply(
+    `🆔 <b>Your Telegram Chat ID:</b>\n\n` +
+    `<code>${telegramId}</code>\n\n` +
+    `To set up admin access, copy this ID and set it as the <code>ADMIN_CHAT_ID</code> environment variable.`,
+    { parse_mode: 'HTML' }
+  );
 }
 
 export default {
@@ -289,4 +302,5 @@ export default {
   handleSettingsUpdate,
   handleDeleteAccount,
   handleHelp,
+  handleMyId,
 };

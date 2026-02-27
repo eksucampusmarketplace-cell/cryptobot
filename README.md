@@ -68,6 +68,7 @@ CryptoBot enables users to sell cryptocurrency and receive payments directly to 
 | `/settings` | Update bank details (name, account number, account holder) |
 | `/referral` | Get your unique referral link |
 | `/support` | Create a support ticket |
+| `/myid` | Get your Telegram Chat ID (for admin setup) |
 | `/help` | Show help message |
 
 ### Admin Commands
@@ -258,8 +259,9 @@ User Sends Crypto
    ```
 
 3. **Get Telegram Chat ID**
-   - Start a chat with [@userinfobot](https://t.me/userinfobot) on Telegram
-   - It will reply with your chat ID
+   - **Option 1**: Start your bot and use the `/myid` command
+   - **Option 2**: Start a chat with [@userinfobot](https://t.me/userinfobot) on Telegram
+   - Copy the displayed Chat ID
    - Add this to `ADMIN_CHAT_ID` in `.env`
 
 4. **Initialize Database**
