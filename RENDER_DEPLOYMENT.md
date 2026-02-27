@@ -338,6 +338,30 @@ Or use the **Connect** button in Render's database dashboard to use psql or othe
 
 ## Common Issues and Solutions
 
+### Issue: Port Scan Timeout - No Open Ports Detected
+
+**Symptoms**:
+```
+==> No open ports detected, continuing to scan...
+==> Port scan timeout reached, no open ports detected.
+```
+
+**Root Cause**: The server is not starting before Render's port scan timeout. Common causes:
+1. `prisma db push` in start command blocking startup
+2. Database connection retry blocking the server
+3. Application crash during initialization
+
+**Solution**: Ensure the HTTP server starts immediately:
+
+1. The `startCommand` should NOT include database operations like `prisma db push`
+2. Use the correct start command:
+   ```
+   node dist/index.js
+   ```
+3. Database operations should happen asynchronously after the server starts
+
+**What we do**: The bot starts its HTTP server first, then connects to the database in the background. This ensures Render can detect the open port even if the database is slow or unavailable.
+
 ### Issue: Database Connection Timeout
 
 **Symptoms**: "Can't reach database server" error
@@ -347,6 +371,34 @@ Or use the **Connect** button in Render's database dashboard to use psql or othe
 2. Ensure database and web service are in the same region
 3. Verify `DATABASE_URL` is correct
 4. Check if database has reached connection limits
+
+### Issue: Supabase Database Authentication Failed
+
+**Symptoms**:
+```
+Authentication failed against database server at `aws-1-eu-central-1.pooler.supabase.com`
+The provided database credentials for `postgres` are not valid.
+```
+
+**Root Cause**: The DATABASE_URL has incorrect credentials (wrong username or password).
+
+**Solution**: Verify and fix the DATABASE_URL:
+
+1. Go to Supabase Dashboard → Project Settings → Database
+2. Find **Connection Pooling** section
+3. Copy the connection string (make sure to include the full password)
+4. The username should include the project reference, e.g., `postgres.xyzabc123`
+5. Update `DATABASE_URL` in Render environment variables
+
+**Correct format**:
+```
+postgres://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
+```
+
+**Important**:
+- The password may contain special characters that need URL encoding
+- If you reset your database password, you need to update the connection string
+- The project reference is part of the username (e.g., `postgres.abcdefghijk`)
 
 ### Issue: Supabase Database Connection Failed (P1001 Error)
 
@@ -364,7 +416,7 @@ Can't reach database server at `db.xxxxx.supabase.co:5432`
 
 1. Go to Supabase Dashboard → Project Settings → Database
 2. Find **Connection Pooling** section
-3. Copy the **Session mode** connection string (port 6543)
+3. Copy the **Transaction mode** connection string (port 6543)
 4. Update `DATABASE_URL` in Render:
    ```
    postgres://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres

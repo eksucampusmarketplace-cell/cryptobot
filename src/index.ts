@@ -319,6 +319,9 @@ class CryptoBot {
   private startWebhookServer() {
     const port = parseInt(process.env.PORT || process.env.WEBHOOK_PORT || '3001');
     
+    // Log immediately that we're starting the server
+    logger.info(`Starting webhook server on port ${port}...`);
+    
     this.webhookServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
       const { pathname, query } = parse(req.url || '', true);
 
@@ -543,8 +546,9 @@ class CryptoBot {
       res.end('Not found');
     });
 
-    this.webhookServer.listen(port, () => {
-      logger.info(`Webhook server listening on port ${port}`);
+    // Listen on all interfaces (0.0.0.0) for Render compatibility
+    this.webhookServer.listen(port, '0.0.0.0', () => {
+      logger.info(`✅ Webhook server listening on 0.0.0.0:${port}`);
       logger.info(`IPN endpoint: http://localhost:${port}${webhookService.getWebhookPath()}`);
       logger.info(`Health check: http://localhost:${port}/health`);
       logger.info(`WebApp registration: http://localhost:${port}/register`);
@@ -552,8 +556,12 @@ class CryptoBot {
       logger.info(`API resolve-account: http://localhost:${port}/api/resolve-account`);
     });
 
-    this.webhookServer.on('error', (error) => {
-      logger.error('Webhook server error:', error);
+    this.webhookServer.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE') {
+        logger.error(`Port ${port} is already in use`);
+      } else {
+        logger.error('Webhook server error:', error);
+      }
     });
   }
 

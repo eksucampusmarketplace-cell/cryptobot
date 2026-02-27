@@ -83,6 +83,7 @@ export const connectWithRetry = async (
   retryDelayMs: number = defaultRetryDelayMs
 ): Promise<void> => {
   let attempt = 0;
+  const maxDelayMs = 30000; // Cap at 30 seconds max delay
 
   while (true) {
     try {
@@ -95,6 +96,7 @@ export const connectWithRetry = async (
       if (attempt > maxRetries) {
         logger.error('All database connection attempts failed');
         logger.error('Connection URL pattern:', normalizedDatabaseUrl?.replace(/:[^:@]+@/, ':****@'));
+        
         if (error?.code === 'P1001') {
           logger.error('Database server is unreachable. Common causes:');
           logger.error('  1. Database is paused (Supabase free tier pauses inactive databases)');
@@ -105,11 +107,27 @@ export const connectWithRetry = async (
           logger.error('SOLUTION: Use the Supabase pooler connection string instead:');
           logger.error('  Format: postgres://[user]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres');
           logger.error('  Find it in: Supabase Dashboard > Project Settings > Database > Connection Pooling');
+        } else if (error?.code === 'P1000' || error?.message?.includes('Authentication failed')) {
+          logger.error('');
+          logger.error('❌ DATABASE AUTHENTICATION FAILED');
+          logger.error('The database credentials in DATABASE_URL are incorrect.');
+          logger.error('');
+          logger.error('For Supabase, the DATABASE_URL should use the following format:');
+          logger.error('  postgres://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres');
+          logger.error('');
+          logger.error('Steps to fix:');
+          logger.error('  1. Go to Supabase Dashboard > Project Settings > Database');
+          logger.error('  2. Copy the Connection Pooling connection string (port 6543)');
+          logger.error('  3. Make sure the password is correct (reset if needed)');
+          logger.error('  4. Update DATABASE_URL in Render environment variables');
+          logger.error('');
+          logger.error('Note: The username should include the project reference (e.g., postgres.xyzabc123)');
         }
         throw error;
       }
 
-      const delay = retryDelayMs * Math.pow(2, attempt - 1);
+      // Cap exponential backoff at maxDelayMs
+      const delay = Math.min(retryDelayMs * Math.pow(2, attempt - 1), maxDelayMs);
       logger.warn(
         `Database connection failed (attempt ${attempt}/${maxRetries}). Retrying in ${Math.round(
           delay / 1000

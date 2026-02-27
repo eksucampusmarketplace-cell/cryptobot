@@ -2,8 +2,8 @@ services:
   - type: web
     name: cryptobot
     env: node
-    buildCommand: npm install --include=dev && npm run build
-    startCommand: npm run db:generate && npx prisma db push && node dist/index.js
+    buildCommand: npm install --include=dev && npm run build && npm run db:generate
+    startCommand: node dist/index.js
     envVars:
       - key: NODE_ENV
         value: production
