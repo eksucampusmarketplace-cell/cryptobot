@@ -1,7 +1,6 @@
 import { Context } from 'telegraf';
 import { Update } from 'telegraf/typings/core/types/typegram';
 import { userService } from '../../services/userService';
-import { walletService } from '../../services/walletService';
 import { transactionService } from '../../services/transactionService';
 import cryptoService from '../../services/cryptoService';
 import nowpaymentsService from '../../services/nowpaymentsService';
@@ -290,56 +289,88 @@ export async function handleConfirmSale(ctx: Context): Promise<void> {
   }
 
   try {
-    // Get required confirmations from NOWPayments or fallback
-    let confirmations = 3;
+    // Calculate USD value for NOWPayments
+    const rate = await cryptoService.getCryptoRate(crypto);
+    const priceUsd = rate?.priceUsd || 0;
+    const grossUsd = amount * priceUsd;
     
-    if (config.crypto.useNowPayments && config.apis.nowpayments) {
-      try {
-        const npConfig = await nowpaymentsService.getCryptoConfig();
-        if (npConfig[crypto]) {
-          confirmations = npConfig[crypto].confirmations;
-        } else if (CRYPTO_CONFIG[crypto]) {
-          confirmations = CRYPTO_CONFIG[crypto].confirmations;
-        }
-      } catch (error) {
-        if (CRYPTO_CONFIG[crypto]) {
-          confirmations = CRYPTO_CONFIG[crypto].confirmations;
-        }
+    // Get required confirmations from NOWPayments config
+    let confirmations = 3;
+    try {
+      const npConfig = await nowpaymentsService.getCryptoConfig();
+      if (npConfig[crypto]) {
+        confirmations = npConfig[crypto].confirmations;
+      } else if (CRYPTO_CONFIG[crypto]) {
+        confirmations = CRYPTO_CONFIG[crypto].confirmations;
       }
-    } else if (CRYPTO_CONFIG[crypto]) {
-      confirmations = CRYPTO_CONFIG[crypto].confirmations;
+    } catch (error) {
+      if (CRYPTO_CONFIG[crypto]) {
+        confirmations = CRYPTO_CONFIG[crypto].confirmations;
+      }
     }
     
-    // Generate or get existing wallet
-    const wallet = await walletService.getOrCreateForTransaction(user.id, crypto, network);
-
-    // Create pending transaction
-    const transaction = await transactionService.create({
+    // Create pending transaction first to get the ID
+    // We'll update it with the payment details after
+    const tempTransaction = await transactionService.create({
       userId: user.id,
-      walletId: wallet.id,
       type: 'EXCHANGE',
       cryptocurrency: crypto,
       network: network,
       amount: amount,
-      toAddress: wallet.address,
+      toAddress: 'pending', // Temporary, will update
       bankName: user.bankName || undefined,
       accountNumber: user.accountNumber || undefined,
       accountName: user.accountName || undefined,
       requiredConfirmations: confirmations,
     });
 
+    // Create NOWPayments payment with our transaction ID as order_id
+    // This supports 100+ coins via NOWPayments
+    const payment = await nowpaymentsService.createPayment(
+      grossUsd,
+      'usd',
+      crypto.toLowerCase(),
+      tempTransaction.id, // Use our transaction ID
+      `Sell ${crypto} via ${network}`
+    );
+
+    if (!payment) {
+      // Cancel the temp transaction if payment creation failed
+      await transactionService.cancel(tempTransaction.id, 'NOWPayments payment creation failed');
+      
+      await ctx.reply(
+        '❌ Error creating payment. NOWPayments API may be unavailable or the selected coin/network is not supported.\n\n' +
+        'Please try again later or contact support.',
+        getMainKeyboard()
+      );
+      return;
+    }
+
+    // Update transaction with NOWPayments data
+    const transaction = await transactionService.updateStatus(
+      tempTransaction.id,
+      'PENDING',
+      {
+        toAddress: payment.pay_address,
+        paymentId: String(payment.payment_id),
+        amount: payment.pay_amount, // Use exact amount from NOWPayments
+      }
+    );
+
     clearSession(telegramId);
 
     // Show deposit instructions
     await ctx.reply(
       `✅ <b>Transaction Created!</b>\n\n` +
-      `📝 Transaction ID: <code>${transaction.id}</code>\n\n` +
-      `📥 <b>Send exactly ${amount} ${crypto} to:</b>\n` +
-      `<code>${wallet.address}</code>\n\n` +
+      `📝 Transaction ID: <code>${transaction.id}</code>\n` +
+      `💳 NOWPayments ID: <code>${payment.payment_id}</code>\n\n` +
+      `📥 <b>Send exactly ${payment.pay_amount} ${crypto} to:</b>\n` +
+      `<code>${payment.pay_address}</code>\n\n` +
       `⚠️ <b>Important:</b>\n` +
       `• Send only ${crypto} to this address\n` +
       `• Network: ${network.toUpperCase()}\n` +
-      `• Required confirmations: ${confirmations}\n\n` +
+      `• Required confirmations: ${confirmations}\n` +
+      `• Amount must be exact: ${payment.pay_amount} ${crypto}\n\n` +
       `We'll notify you once the deposit is confirmed.\n\n` +
       `⏳ Waiting for deposit...`,
       { parse_mode: 'HTML' }
@@ -347,7 +378,7 @@ export async function handleConfirmSale(ctx: Context): Promise<void> {
 
     // Show the address for copying
     await ctx.reply(
-      `📋 Copy this address:\n\n<code>${wallet.address}</code>`,
+      `📋 Copy this address:\n\n<code>${payment.pay_address}</code>`,
       { parse_mode: 'HTML' }
     );
   } catch (error) {

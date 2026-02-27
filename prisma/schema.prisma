@@ -107,6 +107,9 @@ model Transaction {
   confirmations   Int      @default(0)
   requiredConfirmations Int @default(3)
   
+  // NOWPayments integration
+  paymentId       String?  // NOWPayments payment_id
+  
   // Admin actions
   approvedBy      String?  // Admin telegram ID
   approvedAt      DateTime?
