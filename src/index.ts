@@ -9,7 +9,7 @@ import { join } from 'path';
 dotenv.config();
 
 import { config, USER_COMMANDS, ADMIN_COMMANDS } from './config';
-import { prisma } from './utils/db';
+import { connectWithRetry, prisma } from './utils/db';
 import logger from './utils/logger';
 import { SessionState, getSession, clearSession } from './utils/session';
 import { getMainKeyboard, getAdminKeyboard } from './utils/keyboards';
@@ -267,7 +267,7 @@ class CryptoBot {
   async start() {
     try {
       // Connect to database
-      await prisma.$connect();
+      await connectWithRetry();
       logger.info('Database connected');
 
       // Start deposit checker (as fallback/enhancement to IPN)
