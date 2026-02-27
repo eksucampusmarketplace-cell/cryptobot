@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Complete Registration</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root {
       --primary: #0088cc;
@@ -405,8 +406,15 @@
       confirmBtn.disabled = true;
       confirmBtn.textContent = 'Saving...';
       
+      // Get Telegram WebApp initData for authentication
+      const initData = window.Telegram?.WebApp?.initData;
+      if (!initData) {
+        showError('Telegram authentication required. Please open this page from the bot.');
+        return;
+      }
+      
       try {
-        const response = await fetch(`${API_BASE}/api/register`, {
+        const response = await fetch(`${API_BASE}/api/register?initData=${encodeURIComponent(initData)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
