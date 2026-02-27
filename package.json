@@ -4,7 +4,7 @@
   "description": "Telegram Crypto Exchange Bot - Sell crypto and receive bank transfer",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp -r src/webapp dist/webapp",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "db:generate": "prisma generate",
