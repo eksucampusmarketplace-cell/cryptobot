@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Complete Registration</title>
+  <style>
+    :root {
+      --primary: #0088cc;
+      --primary-dark: #006699;
+      --success: #28a745;
+      --error: #dc3545;
+      --gray-100: #f8f9fa;
+      --gray-200: #e9ecef;
+      --gray-300: #dee2e6;
+      --gray-500: #6c757d;
+      --gray-700: #495057;
+      --gray-900: #212529;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: var(--gray-100);
+      color: var(--gray-900);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      color: var(--gray-500);
+      font-size: 14px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      margin-bottom: 16px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--gray-700);
+      margin-bottom: 8px;
+    }
+
+    .form-group select,
+    .form-group input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid var(--gray-200);
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.2s;
+      background: white;
+    }
+
+    .form-group select:focus,
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .form-group input:disabled {
+      background: var(--gray-100);
+      cursor: not-allowed;
+    }
+
+    .form-group .hint {
+      font-size: 12px;
+      color: var(--gray-500);
+      margin-top: 4px;
+    }
+
+    .form-group.error select,
+    .form-group.error input {
+      border-color: var(--error);
+    }
+
+    .form-group .error-message {
+      color: var(--error);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .account-preview {
+      background: var(--gray-100);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+
+    .account-preview .label {
+      font-size: 12px;
+      color: var(--gray-500);
+      margin-bottom: 4px;
+    }
+
+    .account-preview .value {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--gray-900);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.1s;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #218838;
+    }
+
+    .btn:disabled {
+      background: var(--gray-300);
+      cursor: not-allowed;
+    }
+
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid var(--gray-200);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .success-icon {
+      width: 64px;
+      height: 64px;
+      background: var(--success);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+    }
+
+    .success-icon svg {
+      width: 32px;
+      height: 32px;
+      fill: white;
+    }
+
+    .success-message {
+      text-align: center;
+    }
+
+    .success-message h2 {
+      color: var(--success);
+      margin-bottom: 8px;
+    }
+
+    .success-message p {
+      color: var(--gray-500);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Loading State -->
+    <div id="loading" class="card">
+      <div class="loading">
+        <div class="spinner"></div>
+      </div>
+      <p style="text-align: center; color: var(--gray-500);">Loading banks...</p>
+    </div>
+
+    <!-- Registration Form -->
+    <div id="registration-form" class="hidden">
+      <div class="header">
+        <h1>🏦 Bank Details</h1>
+        <p>Enter your bank information to receive payments</p>
+      </div>
+
+      <div class="card">
+        <div class="form-group" id="bank-group">
+          <label for="bank">Select Your Bank</label>
+          <select id="bank" required>
+            <option value="">Loading banks...</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="account-number-group">
+          <label for="account-number">Account Number</label>
+          <input type="text" id="account-number" placeholder="Enter 10-digit account number" maxlength="10" inputmode="numeric" pattern="[0-9]*">
+          <p class="hint">Enter your 10-digit bank account number</p>
+        </div>
+
+        <div id="account-preview" class="hidden">
+          <div class="account-preview">
+            <div class="label">Account Name</div>
+            <div class="value" id="resolved-name">-</div>
+          </div>
+        </div>
+      </div>
+
+      <button id="confirm-btn" class="btn btn-success" disabled>
+        Confirm & Save
+      </button>
+    </div>
+
+    <!-- Success State -->
+    <div id="success" class="card hidden">
+      <div class="success-message">
+        <div class="success-icon">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>
+        </div>
+        <h2>Registration Complete!</h2>
+        <p>Your bank details have been saved. You can now sell crypto and receive payments.</p>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div id="error" class="card hidden">
+      <div class="success-message">
+        <h2 style="color: var(--error);">Error</h2>
+        <p id="error-message">Something went wrong. Please try again.</p>
+        <button id="retry-btn" class="btn btn-primary" style="margin-top: 16px;">
+          Try Again
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin;
+    let banks = [];
+    let resolveTimeout = null;
+    let resolvedAccount = null;
+
+    // DOM Elements
+    const loadingEl = document.getElementById('loading');
+    const formEl = document.getElementById('registration-form');
+    const successEl = document.getElementById('success');
+    const errorEl = document.getElementById('error');
+    const bankSelect = document.getElementById('bank');
+    const accountInput = document.getElementById('account-number');
+    const accountPreview = document.getElementById('account-preview');
+    const resolvedNameEl = document.getElementById('resolved-name');
+    const confirmBtn = document.getElementById('confirm-btn');
+    const errorMessageEl = document.getElementById('error-message');
+    const retryBtn = document.getElementById('retry-btn');
+
+    // Initialize
+    async function init() {
+      try {
+        const response = await fetch(`${API_BASE}/api/banks`);
+        if (!response.ok) throw new Error('Failed to load banks');
+        
+        const data = await response.json();
+        banks = data.banks;
+        
+        // Populate bank dropdown
+        bankSelect.innerHTML = '<option value="">Select your bank</option>';
+        banks.forEach(bank => {
+          const option = document.createElement('option');
+          option.value = bank.code;
+          option.textContent = bank.name;
+          bankSelect.appendChild(option);
+        });
+        
+        loadingEl.classList.add('hidden');
+        formEl.classList.remove('hidden');
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    // Show error state
+    function showError(message) {
+      loadingEl.classList.add('hidden');
+      formEl.classList.add('hidden');
+      successEl.classList.add('hidden');
+      errorEl.classList.remove('hidden');
+      errorMessageEl.textContent = message;
+    }
+
+    // Resolve account number
+    async function resolveAccount() {
+      const bankCode = bankSelect.value;
+      const accountNumber = accountInput.value.trim();
+      
+      // Clear previous timeout
+      if (resolveTimeout) {
+        clearTimeout(resolveTimeout);
+      }
+      
+      // Reset state
+      accountPreview.classList.add('hidden');
+      resolvedAccount = null;
+      confirmBtn.disabled = true;
+      
+      // Validate
+      if (!bankCode || accountNumber.length !== 10 || !/^\d+$/.test(accountNumber)) {
+        return;
+      }
+      
+      // Debounce the API call
+      resolveTimeout = setTimeout(async () => {
+        try {
+          const response = await fetch(
+            `${API_BASE}/api/resolve-account?bank_code=${bankCode}&account_number=${accountNumber}`
+          );
+          
+          if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.message || 'Failed to resolve account');
+          }
+          
+          const data = await response.json();
+          resolvedAccount = data.account_name;
+          
+          resolvedNameEl.textContent = resolvedAccount;
+          accountPreview.classList.remove('hidden');
+          confirmBtn.disabled = false;
+          
+        } catch (err) {
+          showError(err.message);
+        }
+      }, 500);
+    }
+
+    // Confirm and save
+    async function confirmRegistration() {
+      const bankCode = bankSelect.value;
+      const accountNumber = accountInput.value.trim();
+      
+      if (!bankCode || !accountNumber || !resolvedAccount) {
+        return;
+      }
+      
+      const bank = banks.find(b => b.code === bankCode);
+      
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Saving...';
+      
+      try {
+        const response = await fetch(`${API_BASE}/api/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bank_name: bank.name,
+            bank_code: bankCode,
+            account_number: accountNumber,
+            account_name: resolvedAccount
+          })
+        });
+        
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.message || 'Failed to save bank details');
+        }
+        
+        formEl.classList.add('hidden');
+        successEl.classList.remove('hidden');
+        
+        // Close the WebApp after a short delay
+        setTimeout(() => {
+          if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.close();
+          }
+        }, 2000);
+        
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    // Event Listeners
+    bankSelect.addEventListener('change', () => {
+      resolveAccount();
+    });
+
+    accountInput.addEventListener('input', () => {
+      resolveAccount();
+    });
+
+    confirmBtn.addEventListener('click', confirmRegistration);
+    retryBtn.addEventListener('click', () => {
+      errorEl.classList.add('hidden');
+      loadingEl.classList.remove('hidden');
+      init();
+    });
+
+    // Initialize Telegram WebApp
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+    }
+
+    // Start
+    init();
+  </script>
+</body>
+</html>

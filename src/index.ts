@@ -1,8 +1,10 @@
-import { Telegraf, Context, session } from 'telegraf';
+import { Telegraf, Context, session, Markup } from 'telegraf';
 import { Update } from 'telegraf/typings/core/types/typegram';
 import * as dotenv from 'dotenv';
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { parse } from 'url';
+import { readFileSync, existsSync } from 'fs';
+import { join } from 'path';
 
 dotenv.config();
 
@@ -33,6 +35,7 @@ import notificationService from './services/notificationService';
 import depositChecker from './workers/depositChecker';
 import webhookService from './services/webhookService';
 import ipnService from './services/ipnService';
+import paystackService from './services/paystackService';
 
 type BotContext = Context<Update>;
 
@@ -270,10 +273,8 @@ class CryptoBot {
       // Start deposit checker (as fallback/enhancement to IPN)
       depositChecker.start();
 
-      // Start webhook server for IPN (if enabled)
-      if (config.ipn.enabled) {
-        this.startWebhookServer();
-      }
+      // Always start webhook server for WebApp and API
+      this.startWebhookServer();
 
       // Launch bot
       await this.bot.launch();
@@ -304,11 +305,199 @@ class CryptoBot {
     const port = parseInt(process.env.PORT || process.env.WEBHOOK_PORT || '3001');
     
     this.webhookServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
-      const { pathname } = parse(req.url || '', true);
+      const { pathname, query } = parse(req.url || '', true);
 
       // Handle NOWPayments IPN webhooks
       if (pathname === webhookService.getWebhookPath()) {
         await webhookService.handleWebhook(req, res);
+        return;
+      }
+
+      // API: Get list of Nigerian banks
+      if (pathname === '/api/banks' && req.method === 'GET') {
+        try {
+          const banks = await paystackService.getNigerianBanks();
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ banks }));
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to fetch banks';
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: message }));
+        }
+        return;
+      }
+
+      // API: Resolve account number
+      if (pathname === '/api/resolve-account' && req.method === 'GET') {
+        const bankCode = query.bank_code as string;
+        const accountNumber = query.account_number as string;
+
+        if (!bankCode || !accountNumber) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'bank_code and account_number are required' }));
+          return;
+        }
+
+        try {
+          const result = await paystackService.resolveAccount(accountNumber, bankCode);
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ 
+            account_name: result.account_name,
+            account_number: result.account_number,
+            bank_name: result.bank_name 
+          }));
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to resolve account';
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: message }));
+        }
+        return;
+      }
+
+      // API: Register user bank details
+      if (pathname === '/api/register' && req.method === 'POST') {
+        // Get Telegram WebApp initData
+        const initData = query.initData as string || req.headers['x-init-data'] as string;
+        
+        if (!initData) {
+          res.statusCode = 401;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'Unauthorized' }));
+          return;
+        }
+
+        // Parse initData to get telegramId
+        const params = new URLSearchParams(initData);
+        const userJson = params.get('user');
+        
+        if (!userJson) {
+          res.statusCode = 401;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'Invalid initData' }));
+          return;
+        }
+
+        let user: { id: number };
+        try {
+          user = JSON.parse(decodeURIComponent(userJson));
+        } catch {
+          res.statusCode = 401;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'Invalid user data' }));
+          return;
+        }
+
+        const telegramId = String(user.id);
+
+        // Read request body
+        let body = '';
+        for await (const chunk of req) {
+          body += chunk;
+        }
+
+        let data: {
+          bank_name: string;
+          bank_code: string;
+          account_number: string;
+          account_name: string;
+        };
+        
+        try {
+          data = JSON.parse(body);
+        } catch {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'Invalid JSON body' }));
+          return;
+        }
+
+        if (!data.bank_name || !data.account_number || !data.account_name) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'Missing required fields' }));
+          return;
+        }
+
+        try {
+          // Find or create user
+          let dbUser = await prisma.user.findUnique({
+            where: { telegramId },
+          });
+
+          if (!dbUser) {
+            dbUser = await prisma.user.create({
+              data: {
+                telegramId,
+                firstName: 'User',
+              },
+            });
+          }
+
+          // Update bank details
+          await prisma.user.update({
+            where: { id: dbUser.id },
+            data: {
+              bankName: data.bank_name,
+              accountNumber: data.account_number,
+              accountName: data.account_name,
+              isVerified: true,
+            },
+          });
+
+          // Send welcome message to user via bot
+          const welcomeMessage = `✅ <b>Registration Complete!</b>\n\n` +
+            `🏦 Bank: ${data.bank_name}\n` +
+            `📱 Account: ${data.account_number}\n` +
+            `👤 Name: ${data.account_name}\n\n` +
+            `You can now sell crypto and receive payments to your bank account!`;
+
+          // Send message through Telegram API
+          try {
+            const mainKeyboard = Markup.keyboard([
+              ['💰 Sell Crypto', '📊 Rates'],
+              ['📜 History', '👤 Settings'],
+              ['🎁 Referral', '📞 Support'],
+              ['❓ Help'],
+            ]).resize().oneTime();
+
+            await this.bot.telegram.sendMessage(user.id, welcomeMessage, { 
+              parse_mode: 'HTML',
+              reply_markup: mainKeyboard.reply_markup as any
+            });
+          } catch (botError) {
+            logger.warn(`Could not send welcome message to user ${user.id}:`, botError);
+          }
+
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ success: true }));
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to save bank details';
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: message }));
+        }
+        return;
+      }
+
+      // Serve WebApp registration page
+      if (pathname === '/register' || pathname === '/') {
+        const htmlPath = join(__dirname, 'webapp', 'registration.html');
+        
+        if (existsSync(htmlPath)) {
+          const html = readFileSync(htmlPath, 'utf-8');
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'text/html');
+          res.end(html);
+        } else {
+          res.statusCode = 404;
+          res.end('Not found');
+        }
         return;
       }
 
@@ -333,6 +522,9 @@ class CryptoBot {
       logger.info(`Webhook server listening on port ${port}`);
       logger.info(`IPN endpoint: http://localhost:${port}${webhookService.getWebhookPath()}`);
       logger.info(`Health check: http://localhost:${port}/health`);
+      logger.info(`WebApp registration: http://localhost:${port}/register`);
+      logger.info(`API banks: http://localhost:${port}/api/banks`);
+      logger.info(`API resolve-account: http://localhost:${port}/api/resolve-account`);
     });
 
     this.webhookServer.on('error', (error) => {

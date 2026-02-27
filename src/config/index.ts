@@ -27,6 +27,15 @@ export const config = {
     enabled: process.env.NOWPAYMENTS_IPN_ENABLED !== 'false',
     webhookUrl: process.env.WEBHOOK_URL || '',
   },
+
+  paystack: {
+    secretKey: process.env.PAYSTACK_SECRET_KEY || '',
+    baseUrl: 'https://api.paystack.co',
+  },
+
+  webapp: {
+    url: process.env.WEBAPP_URL || '',
+  },
   
   wallet: {
     encryptionKey: process.env.WALLET_ENCRYPTION_KEY || 'default-key-change-in-production',

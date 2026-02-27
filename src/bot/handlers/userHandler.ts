@@ -3,7 +3,7 @@ import { Update } from 'telegraf/typings/core/types/typegram';
 import { userService } from '../../services/userService';
 import { SessionState, getSession, setSession, clearSession, updateSessionData } from '../../utils/session';
 import { getMainKeyboard, getBankSelectionKeyboard, getSettingsKeyboard } from '../../utils/keyboards';
-import { BANKS } from '../../config';
+import { BANKS, config } from '../../config';
 import logger from '../../utils/logger';
 
 type BotContext = Context<Update>;
@@ -27,33 +27,25 @@ export async function handleStart(ctx: BotContext): Promise<void> {
     return;
   }
 
-  // Start registration flow
-  if (user) {
-    setSession(telegramId, { state: SessionState.ENTERING_BANK });
-    await ctx.reply(
-      `👋 Welcome back, ${user.firstName}!\n\n` +
-      `It looks like you haven't completed your registration.\n\n` +
-      `Please select your bank:`,
-      getBankSelectionKeyboard()
-    );
-    return;
-  }
-
-  // Create new user
-  await userService.create({
-    telegramId: String(telegramId),
-    username: ctx.from?.username,
-    firstName: ctx.from?.first_name || 'User',
-    lastName: ctx.from?.last_name,
-  });
-
-  setSession(telegramId, { state: SessionState.ENTERING_BANK });
+  // Open WebApp for registration
+  const webappUrl = config.webapp.url || `https://${process.env.RENDER_EXTERNAL_URL || 'localhost:3001'}/register`;
 
   await ctx.reply(
     `👋 Welcome to Crypto Exchange Bot!\n\n` +
     `To get started, you'll need to provide your bank details for receiving payments.\n\n` +
-    `Please select your bank:`,
-    getBankSelectionKeyboard()
+    `Click the button below to complete your registration:`,
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: '🏦 Complete Registration',
+              web_app: { url: webappUrl },
+            },
+          ],
+        ],
+      },
+    }
   );
 }
 
