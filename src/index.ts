@@ -528,10 +528,13 @@ class CryptoBot {
 
       // Serve WebApp registration page
       if (pathname === '/register' || pathname === '/') {
+        // __dirname is dist/ in production and src/ in dev (tsx); check both
         const htmlPath = join(__dirname, 'webapp', 'registration.html');
-        
-        if (existsSync(htmlPath)) {
-          const html = readFileSync(htmlPath, 'utf-8');
+        const htmlPathFallback = join(__dirname, '..', 'src', 'webapp', 'registration.html');
+        const resolvedPath = existsSync(htmlPath) ? htmlPath : htmlPathFallback;
+
+        if (existsSync(resolvedPath)) {
+          const html = readFileSync(resolvedPath, 'utf-8');
           res.statusCode = 200;
           res.setHeader('Content-Type', 'text/html');
           res.end(html);
