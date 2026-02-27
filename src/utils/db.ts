@@ -94,10 +94,10 @@ if (normalizedDatabaseUrl) {
   prismaOptions.datasources = {
     db: { url: normalizedDatabaseUrl },
   };
-}
 
-if (directDatabaseUrl) {
-  prismaOptions.directUrl = directDatabaseUrl;
+  if (directDatabaseUrl) {
+    prismaOptions.datasources.db.directUrl = directDatabaseUrl;
+  }
 }
 
 export const prisma =
