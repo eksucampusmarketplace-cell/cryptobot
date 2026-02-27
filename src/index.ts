@@ -301,7 +301,7 @@ class CryptoBot {
    * Start HTTP server for receiving webhooks
    */
   private startWebhookServer() {
-    const port = parseInt(process.env.WEBHOOK_PORT || '3001');
+    const port = parseInt(process.env.PORT || process.env.WEBHOOK_PORT || '3001');
     
     this.webhookServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
       const { pathname } = parse(req.url || '', true);

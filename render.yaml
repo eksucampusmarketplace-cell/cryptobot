@@ -2,7 +2,6 @@ services:
   - type: web
     name: cryptobot
     env: node
-    workingDir: /opt/render/project
     buildCommand: npm install && npm run db:generate && npm run build
     startCommand: node dist/index.js
     envVars:
